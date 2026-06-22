@@ -1,0 +1,22 @@
+name: betto_pdfium
+description:
+  A pure Dart package wrapping the PDFium library for PDF rendering, text
+  extraction, and annotation support.
+version: 0.1.0-dev.1
+repository: https://github.com/bettongia/pdfium
+issue_tracker: https://github.com/bettongia/pdfium/issues
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  args: ^2.7.0
+  collection: ^1.19.1
+  ffi: ^2.2.0
+  meta: ^1.18.3
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  ffigen: ^20.1.1
+  lints: ^6.1.0
+  test: ^1.31.1

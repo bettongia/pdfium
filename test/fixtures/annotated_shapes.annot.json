@@ -1,0 +1,73 @@
+[
+  {
+    "pageIndex": 0,
+    "annotations": [
+      {
+        "type": "Square",
+        "rect": [
+          50.0,
+          650.0,
+          150.0,
+          750.0
+        ],
+        "contents": "A red square",
+        "author": "Shape Author",
+        "color": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "modifiedDate": null,
+        "quadPoints": null,
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      },
+      {
+        "type": "Circle",
+        "rect": [
+          200.0,
+          650.0,
+          300.0,
+          750.0
+        ],
+        "contents": "A green circle",
+        "author": "Shape Author",
+        "color": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "modifiedDate": null,
+        "quadPoints": null,
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      },
+      {
+        "type": "Line",
+        "rect": [
+          50.0,
+          550.0,
+          300.0,
+          620.0
+        ],
+        "contents": "A blue line",
+        "author": "Shape Author",
+        "color": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "modifiedDate": null,
+        "quadPoints": null,
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      }
+    ]
+  }
+]

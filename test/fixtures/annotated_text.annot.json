@@ -1,0 +1,87 @@
+[
+  {
+    "pageIndex": 0,
+    "annotations": [
+      {
+        "type": "Highlight",
+        "rect": [
+          742.68,
+          742.68,
+          935.68,
+          756.68
+        ],
+        "contents": "This is a highlight",
+        "author": "Highlight Author",
+        "color": [
+          1.0,
+          1.0,
+          0.0
+        ],
+        "modifiedDate": "D:20260519052950",
+        "quadPoints": [
+          57.0,
+          756.68,
+          250.0,
+          756.68,
+          57.0,
+          742.68,
+          250.0,
+          742.68
+        ],
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      },
+      {
+        "type": "Text",
+        "rect": [
+          481.89,
+          714.33,
+          538.58,
+          771.02
+        ],
+        "contents": "This is a sticky note comment.",
+        "author": "Note Author",
+        "color": null,
+        "modifiedDate": null,
+        "quadPoints": null,
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      },
+      {
+        "type": "Underline",
+        "rect": [
+          742.68,
+          742.68,
+          935.68,
+          756.68
+        ],
+        "contents": "This is an underline",
+        "author": "Underline Author",
+        "color": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "modifiedDate": "D:20260519052950",
+        "quadPoints": [
+          57.0,
+          756.68,
+          250.0,
+          756.68,
+          57.0,
+          742.68,
+          250.0,
+          742.68
+        ],
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      }
+    ]
+  }
+]

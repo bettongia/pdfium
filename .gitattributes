@@ -1,0 +1,3 @@
+# Treat PDF files as binary to prevent line-ending normalisation,
+# which would corrupt binary content in test fixtures.
+*.pdf binary

@@ -1,0 +1,85 @@
+# ffigen configuration for PDFium Dart FFI bindings.
+#
+# Scope: fpdfview.h + fpdf_doc.h + fpdf_text.h + fpdf_annot.h + fpdf_edit.h
+#        + fpdf_thumbnail.h —
+# the minimum needed to initialise the library, load documents, render pages,
+# extract document metadata (Info dictionary, file version, file identifiers),
+# extract plain text from pages, extract annotations, extract page images, and
+# retrieve embedded page thumbnails.
+# Additional headers are added incrementally as feature plans are implemented.
+#
+# Regenerate bindings with: make ffi_bindings
+# The generated file is committed so that developers without the full C++
+# toolchain can still build and edit Dart code.
+
+name: PdfiumBindings
+description: |
+  Dart FFI bindings for PDFium, generated from fpdfview.h, fpdf_doc.h,
+  fpdf_text.h, fpdf_annot.h, fpdf_edit.h, and fpdf_thumbnail.h. Generated
+  with ffigen — do not edit by hand. Regenerate with: make ffi_bindings
+
+output: 'lib/src/generated/pdfium_bindings.dart'
+
+headers:
+  entry-points:
+    - 'third_party/pdfium/public/fpdfview.h'
+    - 'third_party/pdfium/public/fpdf_doc.h'
+    - 'third_party/pdfium/public/fpdf_text.h'
+    - 'third_party/pdfium/public/fpdf_annot.h'
+    - 'third_party/pdfium/public/fpdf_edit.h'
+    - 'third_party/pdfium/public/fpdf_thumbnail.h'
+  include-directives:
+    - 'third_party/pdfium/public/fpdfview.h'
+    - 'third_party/pdfium/public/fpdf_doc.h'
+    - 'third_party/pdfium/public/fpdf_text.h'
+    - 'third_party/pdfium/public/fpdf_annot.h'
+    - 'third_party/pdfium/public/fpdf_edit.h'
+    - 'third_party/pdfium/public/fpdf_thumbnail.h'
+
+# Include functions from fpdfview.h, fpdf_doc.h, fpdf_text.h, fpdf_annot.h,
+# and fpdf_edit.h. Exclude everything from system headers to keep the
+# generated file minimal.
+functions:
+  include:
+    - 'FPDF_.*'
+    - 'FPDFBitmap_.*'
+    - 'FPDFText_.*'
+    - 'FPDFAnnot_.*'
+    - 'FPDFPage_.*'
+    - 'FPDFLink_.*'
+    - 'FPDFBookmark_.*'
+    - 'FPDFAction_.*'
+    - 'FPDFDest_.*'
+    - 'FPDFPageObj_.*'
+    - 'FPDFImageObj_.*'
+  exclude:
+    # Exclude Windows-only bitmap rendering APIs not needed on macOS.
+    - 'FPDF_RenderPage$'
+
+structs:
+  include:
+    - 'FPDF_.*'
+    - 'FS_.*'
+    - 'IFSDK_.*'
+    - 'FPDF_LIBRARY_CONFIG'
+    - 'FPDF_FILEACCESS'
+    - 'FPDF_FILEWRITE'
+    - 'FPDF_COLORSCHEME'
+    - 'FPDF_IMAGEOBJ_METADATA'
+
+enums:
+  include:
+    - 'FPDF_.*'
+    - 'FPDFANNOT_.*'
+
+globals:
+  include:
+    - 'FPDF_.*'
+
+# Suppress noisy ffigen diagnostics for incomplete struct types that PDFium
+# intentionally uses as opaque handles.
+silence-enum-warning: true
+
+compiler-opts:
+  - '-DPDF_ENABLE_XFA=0'
+  - '-DPDF_ENABLE_V8=0'

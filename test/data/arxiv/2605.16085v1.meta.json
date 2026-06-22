@@ -1,0 +1,42 @@
+{
+  "info": {
+    "title": "Towards Foundation Models for Relational Databases with Language Models and Graph Neural Networks",
+    "author": "Jingcheng Wu; Ratan Bahadur Thapa; Mojtaba Nayyeri; Lucas Etteldorf; Max Finkenbeiner; Fabian Leeske; Steffen Staab",
+    "subject": "Layout by CEURART v0.6.2",
+    "keywords": null,
+    "creator": "arXiv GenPDF (tex2pdf:a6404ea)",
+    "producer": "pikepdf 8.15.1",
+    "creation_date": "D:20260518011150+00'00'",
+    "mod_date": "D:20260518011150+00'00'",
+    "trapped": "/False",
+    "doi": "https://doi.org/10.48550/arXiv.2605.16085",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "arxiv_id": "https://arxiv.org/abs/2605.16085v1",
+    "page_count": 15
+  },
+  "xmp": {
+    "title": "Towards Foundation Models for Relational Databases with Language Models and Graph Neural Networks",
+    "creators": [
+      "Jingcheng Wu",
+      "Ratan Bahadur Thapa",
+      "Mojtaba Nayyeri",
+      "Lucas Etteldorf",
+      "Max Finkenbeiner",
+      "Fabian Leeske",
+      "Steffen Staab"
+    ],
+    "description": "Layout by CEURART v0.6.2",
+    "subjects": null,
+    "language": null,
+    "rights": "http://creativecommons.org/licenses/by/4.0/",
+    "identifier": "https://arxiv.org/abs/2605.16085v1",
+    "create_date": "2026-05-18 01:11:50",
+    "modify_date": "2026-05-18 01:11:50",
+    "creator_tool": "arXiv GenPDF (tex2pdf:a6404ea)",
+    "keywords": null,
+    "pdf_version": null,
+    "producer": "pikepdf 8.15.1",
+    "document_id": "uuid:DF005B57-2A06-8753-7167-92D8CE935460",
+    "instance_id": "uuid:F7B0F439-27B6-D927-26E8-11117924A32B"
+  }
+}
