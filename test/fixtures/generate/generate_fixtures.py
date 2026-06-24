@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Generate PDF test fixtures for the betto_pdfart test suite.
+"""Generate PDF test fixtures for the betto_pdfium test suite.
 
 Produces the following files in test/fixtures/:
 

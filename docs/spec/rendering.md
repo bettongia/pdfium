@@ -143,7 +143,7 @@ render path. Embedded thumbnails are returned at their native dimensions
 regardless of `maxDimension`. On high-DPI displays, multiply `maxDimension` by
 `MediaQuery.devicePixelRatio` before calling to obtain a retina-sharp fallback
 render — this method cannot access `MediaQuery` as it lives in the pure-Dart
-layer (`pdfart_core.dart`).
+layer (`package:betto_pdfium/betto_pdfium.dart`).
 
 #### Error contract
 

@@ -13,7 +13,7 @@ is needed because the entire bookmark tree is a small, bounded data structure.
 The resulting tree is returned as a `List<PdfTocEntry>` whose elements may each
 carry a `children` list of their own `PdfTocEntry` values.
 
-This feature belongs to the pure-Dart entry point (`pdfart_core.dart`) and has
+This feature belongs to the pure-Dart entry point (`package:betto_pdfium/betto_pdfium.dart`) and has
 no dependency on `dart:ui` or Flutter.
 
 ## Public API

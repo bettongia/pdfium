@@ -22,6 +22,7 @@ The PDF is written as raw bytes without any external library so it can be
 generated in a sandboxed environment without network access.
 """
 
+import os
 import zlib
 
 
@@ -126,5 +127,5 @@ def make_thumbnail_pdf(path):
 
 
 make_thumbnail_pdf(
-    "/Users/gonk/development/bettongia/pdfart/test/data/thumbnail_fixture.pdf"
+    os.path.join(os.path.dirname(__file__), "..", "thumbnail_fixture.pdf")
 )

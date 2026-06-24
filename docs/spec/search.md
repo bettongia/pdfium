@@ -10,7 +10,7 @@ document scan.
 
 The feature is exposed as a pure-Dart method on `PdfDocument` — it has no
 dependency on `dart:ui` or Flutter and is available from
-`pdfart_core.dart`.
+`package:betto_pdfium/betto_pdfium.dart`.
 
 ## Public API
 

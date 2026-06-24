@@ -64,7 +64,7 @@ the full distribution contract.
 ## Usage
 
 ```dart
-import 'package:betto_pdf/pdfart.dart';
+import 'package:betto_pdfium/betto_pdfium.dart';
 ```
 
 ### Metadata extraction
@@ -73,7 +73,7 @@ Load a PDF and read its Info dictionary metadata:
 
 ```dart
 import 'dart:io';
-import 'package:betto_pdf/pdfart.dart';
+import 'package:betto_pdfium/betto_pdfium.dart';
 
 final bytes = await File('document.pdf').readAsBytes();
 
@@ -105,7 +105,7 @@ Extract plain Unicode text from a PDF, page by page:
 
 ```dart
 import 'dart:io';
-import 'package:betto_pdf/pdfart.dart';
+import 'package:betto_pdfium/betto_pdfium.dart';
 
 final bytes = await File('document.pdf').readAsBytes();
 

@@ -1,7 +1,7 @@
 # Specification
 
-This directory contains the technical specification for `betto_pdf` — a
-Dart/Flutter package that wraps the [PDFium](https://pdfium.googlesource.com/pdfium/)
+This directory contains the technical specification for `betto_pdfium` — a
+pure-Dart package that wraps the [PDFium](https://pdfium.googlesource.com/pdfium/)
 C++ library via Dart FFI. The spec describes the public API, internal
 architecture, platform behaviour, and edge-case handling for each feature area.
 

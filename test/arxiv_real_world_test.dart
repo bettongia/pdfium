@@ -15,7 +15,7 @@
 // Real-world arXiv PDF integration tests for PdfDocument.
 //
 // These tests load the arXiv paper 2605.16085v1 from test/data/arxiv/ and
-// verify that pdfart extracts metadata and text content consistent with the
+// verify that betto_pdfium extracts metadata and text content consistent with the
 // reference outputs produced by the Python extraction pipeline in scripts/.
 //
 // Tests are skipped when the PDFium dylib is absent (e.g. CI without a build).

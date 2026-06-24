@@ -12,19 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Pure-Dart entry point for betto_pdf.
+/// Pure-Dart entry point for betto_pdfium.
 ///
 /// Exports document loading, metadata extraction, text extraction, annotation
 /// extraction, and page-size queries. Has no dependency on `dart:ui` or
 /// Flutter, so it can be used in CLI tools and pure-Dart programs:
 ///
 /// ```dart
-/// import 'package:betto_pdf/pdfart_core.dart';
+/// import 'package:betto_pdfium/betto_pdfium.dart';
 /// ```
-///
-/// Flutter applications that also need page rendering and the [PdfPageView]
-/// widget should import `package:betto_pdf/pdfart.dart` instead, which
-/// re-exports everything here plus the Flutter layer.
 library;
 
 export 'src/document/pdf_document.dart';

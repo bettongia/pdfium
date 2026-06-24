@@ -260,9 +260,8 @@ class PdfDocument {
   /// pixels. The returned record exposes [pixels] (BGRA bytes),
   /// [pixelWidth], and [pixelHeight].
   ///
-  /// For Flutter apps, prefer [PdfDocumentRendering.renderPage] from
-  /// `package:betto_pdf/pdfart.dart`, which converts the buffer to a
-  /// `dart:ui` [Image] automatically.
+  /// For Flutter apps, decode the returned BGRA bytes into a `dart:ui` [Image]
+  /// via `decodeImageFromPixels`.
   ///
   /// [renderAnnotations] maps to the PDFium `FPDF_ANNOT` flag (default true).
   /// [lcdText] maps to `FPDF_LCD_TEXT` (default false).
