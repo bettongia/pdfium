@@ -11,10 +11,10 @@ jobs:
   build-apple:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout pdfium-build branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pdfium-build
           path: pdfium-build
@@ -24,7 +24,7 @@ jobs:
         run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: pdfium-build/build
           key: pdfium-build-apple-${{ steps.sha.outputs.sha }}
@@ -62,10 +62,10 @@ jobs:
   build-linux-x64:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout pdfium-build branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pdfium-build
           path: pdfium-build
@@ -75,7 +75,7 @@ jobs:
         run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: pdfium-build/build
           key: pdfium-build-linux-x64-${{ steps.sha.outputs.sha }}
@@ -100,10 +100,10 @@ jobs:
   build-linux-arm64:
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout pdfium-build branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pdfium-build
           path: pdfium-build
@@ -113,7 +113,7 @@ jobs:
         run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: pdfium-build/build
           key: pdfium-build-linux-arm64-${{ steps.sha.outputs.sha }}
@@ -140,10 +140,10 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout pdfium-build branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pdfium-build
           path: pdfium-build
@@ -153,7 +153,7 @@ jobs:
         run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: pdfium-build/build
           key: pdfium-build-android-${{ steps.sha.outputs.sha }}
@@ -185,10 +185,10 @@ jobs:
   build-wasm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Checkout pdfium-build branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pdfium-build
           path: pdfium-build
@@ -198,7 +198,7 @@ jobs:
         run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: pdfium-build/build
           key: pdfium-build-wasm-${{ steps.sha.outputs.sha }}
@@ -215,19 +215,26 @@ jobs:
 
   # ── Publish GitHub Release ───────────────────────────────────────────────────
   publish:
-    needs: [build-apple, build-linux-x64, build-linux-arm64, build-android, build-wasm]
+    needs:
+      [
+        build-apple,
+        build-linux-x64,
+        build-linux-arm64,
+        build-android,
+        build-wasm,
+      ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read PDFium SHA
         id: sha
         run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
