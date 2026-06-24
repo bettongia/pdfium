@@ -102,9 +102,13 @@ jobs:
           name: linux-x64
           path: pdfium-build/dist/linux-x64/
 
-  # ── Linux arm64 ─────────────────────────────────────────────────────────────
+  # ── Linux arm64 (cross-compiled from x86_64) ────────────────────────────────
+  # Built using the bundled Chromium clang cross-compiler with target_cpu=arm64
+  # and an arm64 debian sysroot (install-sysroot.py). The output .so is an
+  # arm64 ELF and cannot be dlopen'd on the x86_64 runner, so the smoke test
+  # verifies the ELF architecture instead of executing the binary.
   build-linux-arm64:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
@@ -130,11 +134,12 @@ jobs:
           PDFIUM_REVISION: ${{ steps.sha.outputs.sha }}
         run: make build_pdfium_linux_arm64
 
-      - name: Smoke test Linux arm64
+      - name: Verify Linux arm64 artifact architecture
         working-directory: pdfium-build
         run: |
-          cc -o smoke_test scripts/smoke_test.c -ldl
-          ./smoke_test dist/linux-arm64/libpdfium.so
+          file dist/linux-arm64/libpdfium.so
+          file dist/linux-arm64/libpdfium.so | grep -q "ARM aarch64" || \
+            (echo "ERROR: expected ARM aarch64 ELF" && exit 1)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
