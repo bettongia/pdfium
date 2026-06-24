@@ -1,0 +1,242 @@
+name: Build PDFium
+
+on:
+  push:
+    branches: [main]
+    paths: [PDFIUM_VERSION]
+  workflow_dispatch:
+
+jobs:
+  # ── Apple (macOS arm64 + iOS arm64) ─────────────────────────────────────────
+  build-apple:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pdfium-build branch
+        uses: actions/checkout@v4
+        with:
+          ref: pdfium-build
+          path: pdfium-build
+
+      - name: Read PDFium SHA
+        id: sha
+        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build workspace
+        uses: actions/cache@v4
+        with:
+          path: pdfium-build/build
+          key: pdfium-build-apple-${{ steps.sha.outputs.sha }}
+
+      - name: Build macOS arm64
+        working-directory: pdfium-build
+        run: make build_pdfium_macos
+
+      - name: Build iOS arm64
+        working-directory: pdfium-build
+        run: make build_pdfium_ios
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: pdfium-build/dist/mac-arm64/
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-arm64
+          path: pdfium-build/dist/ios-arm64/
+
+  # ── Linux x86_64 ────────────────────────────────────────────────────────────
+  build-linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pdfium-build branch
+        uses: actions/checkout@v4
+        with:
+          ref: pdfium-build
+          path: pdfium-build
+
+      - name: Read PDFium SHA
+        id: sha
+        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build workspace
+        uses: actions/cache@v4
+        with:
+          path: pdfium-build/build
+          key: pdfium-build-linux-x64-${{ steps.sha.outputs.sha }}
+
+      - name: Build Linux x86_64
+        working-directory: pdfium-build
+        run: make build_pdfium_linux_x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: pdfium-build/dist/linux-x64/
+
+  # ── Linux arm64 ─────────────────────────────────────────────────────────────
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pdfium-build branch
+        uses: actions/checkout@v4
+        with:
+          ref: pdfium-build
+          path: pdfium-build
+
+      - name: Read PDFium SHA
+        id: sha
+        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build workspace
+        uses: actions/cache@v4
+        with:
+          path: pdfium-build/build
+          key: pdfium-build-linux-arm64-${{ steps.sha.outputs.sha }}
+
+      - name: Build Linux arm64
+        working-directory: pdfium-build
+        run: make build_pdfium_linux_arm64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64
+          path: pdfium-build/dist/linux-arm64/
+
+  # ── Android (arm64 + x86_64) ────────────────────────────────────────────────
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pdfium-build branch
+        uses: actions/checkout@v4
+        with:
+          ref: pdfium-build
+          path: pdfium-build
+
+      - name: Read PDFium SHA
+        id: sha
+        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build workspace
+        uses: actions/cache@v4
+        with:
+          path: pdfium-build/build
+          key: pdfium-build-android-${{ steps.sha.outputs.sha }}
+
+      - name: Build Android arm64
+        working-directory: pdfium-build
+        run: make build_pdfium_android_arm64
+
+      - name: Build Android x86_64
+        working-directory: pdfium-build
+        run: make build_pdfium_android_x64
+
+      - name: Upload Android arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-arm64
+          path: pdfium-build/dist/android-arm64/
+
+      - name: Upload Android x86_64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-x64
+          path: pdfium-build/dist/android-x64/
+
+  # ── Web / WASM ───────────────────────────────────────────────────────────────
+  # NOTE: Emscripten setup not yet implemented. This job is a placeholder
+  # that will fail until build_wasm.sh is extended to install Emscripten
+  # and the correct Emscripten version is determined from PDFium's DEPS.
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout pdfium-build branch
+        uses: actions/checkout@v4
+        with:
+          ref: pdfium-build
+          path: pdfium-build
+
+      - name: Read PDFium SHA
+        id: sha
+        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache build workspace
+        uses: actions/cache@v4
+        with:
+          path: pdfium-build/build
+          key: pdfium-build-wasm-${{ steps.sha.outputs.sha }}
+
+      - name: Build WASM
+        working-directory: pdfium-build
+        run: make build_pdfium_wasm
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm
+          path: pdfium-build/dist/linux-wasm/
+
+  # ── Publish GitHub Release ───────────────────────────────────────────────────
+  publish:
+    needs: [build-apple, build-linux-x64, build-linux-arm64, build-android, build-wasm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read PDFium SHA
+        id: sha
+        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble release files
+        run: |
+          mkdir -p release
+          cp artifacts/macos-arm64/libpdfium.dylib       release/libpdfium-macos-arm64.dylib
+          cp artifacts/ios-arm64/libpdfium-ios-arm64.xcframework.zip release/
+          cp artifacts/linux-x64/libpdfium.so            release/libpdfium-linux-x86_64.so
+          cp artifacts/linux-arm64/libpdfium.so          release/libpdfium-linux-arm64.so
+          cp artifacts/android-arm64/libpdfium.so        release/libpdfium-android-arm64.so
+          cp artifacts/android-x64/libpdfium.so          release/libpdfium-android-x86_64.so
+          cp artifacts/wasm/libpdfium.wasm               release/libpdfium-web.wasm
+          cp artifacts/wasm/libpdfium.js                 release/libpdfium-web.js 2>/dev/null || true
+
+      - name: Write VERSION.txt
+        run: |
+          echo "pdfium_commit=${{ steps.sha.outputs.sha }}" > release/VERSION.txt
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"  >> release/VERSION.txt
+
+      - name: Generate checksums
+        working-directory: release
+        run: sha256sum * > checksums.sha256
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "pdfium-${{ steps.sha.outputs.sha }}" \
+            --title "PDFium ${{ steps.sha.outputs.sha }}" \
+            --notes "PDFium commit: \`${{ steps.sha.outputs.sha }}\`
+
+          Built by GitHub Actions from the \`pdfium-build\` branch.
+          Run \`make fetch_pdfium\` in \`main\` to install." \
+            release/*

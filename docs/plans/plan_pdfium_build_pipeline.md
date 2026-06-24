@@ -1,6 +1,6 @@
 # PDFium Cross-Platform Build Pipeline
 
-**Status**: Investigated
+**Status**: In Progress
 
 **PR link**: —
 
@@ -32,8 +32,11 @@ support is deferred to a later phase pending a test environment.
 - **Makefile as the portability layer**: All build logic lives in Makefile
   targets on `pdfium-build`. CI pipelines are thin wrappers that call
   `make <target>`. Swapping or adding a CI system costs almost nothing.
-- **Containers**: Podman provides rootless Linux containers for Linux and
-  Android builds. macOS and iOS build natively on the host.
+- **Containers**: Dropped. Local container builds via Podman were attempted but
+  abandoned due to QEMU instability on Apple Silicon (Go binaries such as
+  `vpython3` (depot_tools' Python wrapper) crash under x86_64 emulation). Linux, Android, and WASM builds run
+  natively on GitHub Actions `ubuntu-latest` runners instead. macOS and iOS
+  build natively on the macOS arm64 runner.
 - **CI**: GitHub Actions is the sole CI system. The pipeline lives at
   `.github/workflows/build_pdfium.yml` on `main`, checks out `pdfium-build`
   during build jobs, and calls the same Makefile targets that developers run
@@ -67,10 +70,10 @@ support is deferred to a later phase pending a test environment.
 | -------------- | ------------------ | ------------------------- | ------------------- |
 | macOS arm64    | macOS arm64 host   | dylib                     | depot_tools + Ninja |
 | iOS arm64      | macOS arm64 host   | static lib (.xcframework) | Xcode cross-compile |
-| Linux x86_64   | Podman container   | shared lib                | depot_tools + Ninja |
-| Android arm64  | Podman container   | shared lib                | NDK                 |
-| Android x86_64 | Podman container   | shared lib                | NDK                 |
-| Web (WASM)     | Podman container   | .wasm + .js               | Emscripten          |
+| Linux x86_64   | GitHub Actions ubuntu runner | shared lib          | depot_tools + Ninja |
+| Android arm64  | GitHub Actions ubuntu runner | shared lib          | NDK                 |
+| Android x86_64 | GitHub Actions ubuntu runner | shared lib          | NDK                 |
+| Web (WASM)     | GitHub Actions ubuntu runner | .wasm + .js         | Emscripten          |
 
 ## Artifact layout per GitHub Release
 
@@ -93,21 +96,19 @@ checksums.sha256               ← SHA256 of every artifact above; verified by m
 ```
 pdfium-build/
   Makefile                     ← PDFium build targets (build_pdfium_macos, etc.)
+  args.gn.tmpl                 ← shared GN args template (Linux/Android/WASM)
   scripts/
+    setup.sh                   ← depot_tools clone + gclient sync + source patches
     build_macos.sh
     build_ios.sh
-    build_linux.sh             ← runs inside Podman container
-    build_android.sh           ← runs inside Podman container
-    build_wasm.sh              ← runs inside Podman container
-  containers/
-    linux.Dockerfile           ← depot_tools + Ninja image
-    android.Dockerfile         ← NDK image
-    wasm.Dockerfile            ← Emscripten + depot_tools image
-  third_party/
-    pdfium/                    ← PDFium source (git subtree, same SHA as main)
-    depot_tools/               ← pinned subtree or documented install step
+    build_linux.sh             ← runs natively on GitHub Actions ubuntu runner
+    build_android.sh           ← runs natively on GitHub Actions ubuntu runner
+    build_wasm.sh              ← runs natively on GitHub Actions ubuntu runner
   README.md
 ```
+
+PDFium source is fetched at build time via `gclient sync` (see `scripts/setup.sh`);
+it is not committed to the branch. `depot_tools` is likewise cloned at build time.
 
 ### `main` additions
 
@@ -124,10 +125,10 @@ Makefile targets locally to validate before pushing.
 2. Check out `pdfium-build` branch alongside `main`.
 3. Run `make build_pdfium_<platform>` for each platform in the matrix.
    - macOS and iOS: run on a macOS arm64 runner natively.
-   - Linux, Android, and WASM: run inside Podman containers.
+   - Linux, Android, and WASM: run natively on `ubuntu-latest` runners (no containers).
 4. Upload per-platform binaries as pipeline artifacts.
 5. On success: publish a GitHub Release tagged with the PDFium SHA, attaching
-   all binaries and a `VERSION.txt`.
+   all binaries and a `VERSION` file.
 
 ## Fetch mechanism in `main`
 
@@ -140,37 +141,36 @@ dylibs/shared libs (`codesign --force --sign -`) to clear the
 
 ### Phase 1 — `pdfium-build` branch setup
 
-- [ ] Create the orphan `pdfium-build` branch.
-- [ ] Add PDFium source as a git subtree (mirror the same commit SHA recorded in
-      `PDFIUM_VERSION` on `main`).
-- [ ] Add depot_tools as a pinned subtree or document the install step.
-- [ ] Write per-platform build scripts (`scripts/build_*.sh`).
-- [ ] Write Podman `Dockerfile`s for Linux, Android, and WASM (Emscripten) build
-      environments.
-- [ ] Write the `pdfium-build` `Makefile` with targets for each platform.
+- [x] Create the orphan `pdfium-build` branch.
+- [x] Add PDFium source — resolved to `gclient sync` at build time (see review
+      point 1); source is not committed to the branch.
+- [x] Add depot_tools — cloned at build time by `scripts/setup.sh`.
+- [x] Write per-platform build scripts (`scripts/build_*.sh`).
+- [x] ~~Write Podman `Dockerfile`s~~ — dropped; Linux, Android, and WASM run
+      natively on GitHub Actions `ubuntu-latest` runners (see Containers decision).
+- [x] Write the `pdfium-build` `Makefile` with targets for each platform.
 - [ ] Write `README.md` documenting the branch purpose, how to trigger a build,
-      and how to consume artifacts.
+      and how to consume artifacts. (Stub exists; full content outstanding.)
 
 ### Phase 2 — `main` branch additions
 
-- [ ] Add `PDFIUM_VERSION` file to `main` recording the current PDFium commit
+- [x] Add `PDFIUM_VERSION` file to `main` recording the current PDFium commit
       SHA.
-- [ ] Add `make fetch_pdfium` target to the `main` `Makefile`.
-- [ ] Add `make check_pdfium_version` target to the `main` `Makefile`: compares
-      the SHA in `PDFIUM_VERSION` against the commit the `third_party/pdfium/`
-      subtree is pinned to and fails with a clear error if they differ. Wire
-      this target into `make pre_commit` so version drift is caught before any
-      commit lands.
-- [ ] Move PDFium-specific build targets out of the `main` `Makefile` and into
+- [x] Add `make fetch_pdfium` target to the `main` `Makefile`.
+- [x] Add `make check_pdfium_version` target to the `main` `Makefile`: compares
+      the SHA in `PDFIUM_VERSION` against `third_party/pdfium_bin/VERSION` and
+      fails with a clear error if they differ. Wired into `make pre_commit`.
+- [x] Move PDFium-specific build targets out of the `main` `Makefile` and into
       the `pdfium-build` `Makefile`.
 
 ### Phase 3 — CI build matrix
 
-- [ ] Add `.github/workflows/build_pdfium.yml` to `main`: trigger on
+- [x] Add `.github/workflows/build_pdfium.yml` to `main`: trigger on
       `PDFIUM_VERSION` change, check out `pdfium-build`, run Makefile targets
-      for each platform, upload artifacts.
-- [ ] Cache depot_tools sync and `out/` directories keyed on the PDFium commit
+      for each platform, upload artifacts, publish GitHub Release.
+- [x] Cache depot_tools sync and `out/` directories keyed on the PDFium commit
       SHA to avoid full rebuilds on re-runs (`actions/cache`).
+      Note: WASM job is a placeholder — Emscripten setup is not yet implemented.
 
 ### Phase 4 — Release publishing
 
@@ -373,12 +373,14 @@ Remaining gaps that the implementer must address (none are blockers for
    versions must be documented in `pdfium-build/README.md` with a note directing
    the maintainer back to the PDFium source when bumping the SHA.
 
-10. **Podman machine lifecycle.** ✅ _Resolved._ Linux, Android, and WASM builds
-    run inside Podman containers on GitHub Actions runners. The GitHub Actions
-    runner environment handles the Podman socket lifecycle; no Mac Mini or
-    persistent machine configuration is required. The `pdfium-build/README.md`
-    must document how to start Podman locally for developers running the
-    Makefile targets on their own machine.
+10. **Build environment for Linux/Android/WASM.** ✅ _Resolved._ Podman
+    containers were attempted but abandoned due to QEMU instability on Apple
+    Silicon (Go-based depot_tools binaries crash under x86_64 emulation). Linux,
+    Android, and WASM builds run natively on GitHub Actions `ubuntu-latest`
+    runners instead. No containers, no Podman socket lifecycle, no self-hosted
+    agent. Developers cannot build these targets locally on macOS; they must
+    trigger a CI run or use a Linux machine. The `pdfium-build/README.md` must
+    document this constraint clearly.
 
 **Architecture Fit**
 

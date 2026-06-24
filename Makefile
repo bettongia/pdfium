@@ -8,7 +8,7 @@ include site.mk
 default: prepare license_check format analyze coverage doc_site
 .PHONY: default
 
-pre_commit: format_check analyze license_check test
+pre_commit: check_pdfium_version format_check analyze license_check test
 .PHONY: pre_commit
 
 cicd: clean default
