@@ -40,6 +40,7 @@ target_os = "ios"
 target_environment = "device"
 ios_deployment_target = "16.0"
 ios_automatically_manage_certs = false
+ios_enable_code_signing = false
 ARGSEOF
 
 echo "Running: $GN gen $PDFIUM_OUT"
