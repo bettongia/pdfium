@@ -65,13 +65,19 @@ GCLIENTEOF
     # skips the infra/rbe/client CIPD package entirely on all platforms.
     # RBE (Remote Build Execution) is a Google-internal distributed compile
     # service; we never use it and its linux-arm64 package does not exist.
+    # Remove the .bak file immediately — untracked files cause gclient to
+    # report "uncommitted changes" and refuse to sync.
     sed -i.bak "s|'buildtools/reclient': {|'buildtools/reclient': {\n    'condition': 'False',|" \
         "$PDFIUM_SRC/DEPS"
+    rm -f "$PDFIUM_SRC/DEPS.bak"
     echo "setup: patched DEPS to skip reclient CIPD download"
 
     echo "setup: running gclient sync — this downloads several GB and may take 20-40 minutes on first run ..."
+    # --force bypasses the "uncommitted changes" check for the managed:False
+    # pdfium solution. For unmanaged solutions gclient does NOT reset the
+    # working tree on --force; it only skips the cleanliness guard.
     cd "$BUILD_DIR/pdfium_checkout" && \
-        PATH="$DEPOT_TOOLS:$PATH" gclient sync --revision "pdfium@$PDFIUM_REVISION"
+        PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
 fi
 
 # Patch: ios_sdk.gni references ios_automatically_manage_certs in testing/test.gni
