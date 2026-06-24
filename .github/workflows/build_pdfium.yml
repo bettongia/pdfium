@@ -33,9 +33,18 @@ jobs:
         working-directory: pdfium-build
         run: make build_pdfium_macos
 
+      - name: Smoke test macOS arm64
+        working-directory: pdfium-build
+        run: |
+          cc -o smoke_test scripts/smoke_test.c
+          ./smoke_test dist/mac-arm64/libpdfium.dylib
+
       - name: Build iOS arm64
         working-directory: pdfium-build
         run: make build_pdfium_ios
+
+      # iOS is a static xcframework — cannot smoke test via dlopen without a
+      # device or simulator. Skipped; correctness is implied by a clean build.
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
@@ -75,6 +84,12 @@ jobs:
         working-directory: pdfium-build
         run: make build_pdfium_linux_x64
 
+      - name: Smoke test Linux x86_64
+        working-directory: pdfium-build
+        run: |
+          cc -o smoke_test scripts/smoke_test.c -ldl
+          ./smoke_test dist/linux-x64/libpdfium.so
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -107,6 +122,12 @@ jobs:
         working-directory: pdfium-build
         run: make build_pdfium_linux_arm64
 
+      - name: Smoke test Linux arm64
+        working-directory: pdfium-build
+        run: |
+          cc -o smoke_test scripts/smoke_test.c -ldl
+          ./smoke_test dist/linux-arm64/libpdfium.so
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -114,6 +135,8 @@ jobs:
           path: pdfium-build/dist/linux-arm64/
 
   # ── Android (arm64 + x86_64) ────────────────────────────────────────────────
+  # Smoke test skipped: Android .so files require an Android runtime
+  # (device or emulator) and cannot be loaded natively on the Linux runner.
   build-android:
     runs-on: ubuntu-latest
     steps:
