@@ -149,8 +149,8 @@ dylibs/shared libs (`codesign --force --sign -`) to clear the
 - [x] ~~Write Podman `Dockerfile`s~~ — dropped; Linux, Android, and WASM run
       natively on GitHub Actions `ubuntu-latest` runners (see Containers decision).
 - [x] Write the `pdfium-build` `Makefile` with targets for each platform.
-- [ ] Write `README.md` documenting the branch purpose, how to trigger a build,
-      and how to consume artifacts. (Stub exists; full content outstanding.)
+- [x] Write `README.md` documenting the branch purpose, how to trigger a build,
+      and how to consume artifacts.
 
 ### Phase 2 — `main` branch additions
 
