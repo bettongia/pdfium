@@ -58,11 +58,14 @@ example/                       # Usage examples
 bin/                           # CLI entry points
 third_party/pdfium/            # PDFium public headers only (git subtree)
   public/                      # Headers used for FFI binding generation
-third_party/pdfium_bin/        # gitignored; pre-built PDFium binaries
+third_party/pdfium_bin/        # gitignored; populated by make fetch_pdfium
   macos_arm64/
     libpdfium.dylib            # macOS arm64 binary loaded by Dart FFI
-  VERSION                      # PDFium commit SHA + build date (ISO-8601 UTC)
-.build/                        # gitignored; depot_tools + source (make setup)
+  linux_x64/
+    libpdfium.so               # Linux x86_64 binary loaded by Dart FFI
+  linux_arm64/
+    libpdfium.so               # Linux arm64 binary loaded by Dart FFI
+  VERSION                      # Installed PDFium commit SHA (single line)
 docs/
   plans/                       # Implementation plans (see plans/README.md)
   roadmap/                     # Version roadmap files (vX_YY.md format)
