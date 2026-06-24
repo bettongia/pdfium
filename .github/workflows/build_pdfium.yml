@@ -240,7 +240,6 @@ jobs:
         build-linux-x64,
         build-linux-arm64,
         build-android,
-        build-wasm,
       ]
     runs-on: ubuntu-latest
     permissions:
@@ -266,8 +265,6 @@ jobs:
           cp artifacts/linux-arm64/libpdfium.so          release/libpdfium-linux-arm64.so
           cp artifacts/android-arm64/libpdfium.so        release/libpdfium-android-arm64.so
           cp artifacts/android-x64/libpdfium.so          release/libpdfium-android-x86_64.so
-          cp artifacts/wasm/libpdfium.wasm               release/libpdfium-web.wasm
-          cp artifacts/wasm/libpdfium.js                 release/libpdfium-web.js 2>/dev/null || true
 
       - name: Write VERSION.txt
         run: |
