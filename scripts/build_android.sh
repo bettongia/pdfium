@@ -27,6 +27,10 @@ mkdir -p $PDFIUM_OUT
 
 echo "Configure the build args: $PDFIUM_OUT/args.gn"
 envsubst < args.gn.tmpl > $PDFIUM_OUT/args.gn
+# Android distribution requires a single libpdfium.so, not the many component
+# shared libs that is_component_build=true (the shared template default) produces.
+# Appending here overrides the earlier declaration (last value wins in GN args).
+echo "is_component_build = false" >> $PDFIUM_OUT/args.gn
 
 echo "Running: $GN gen $PDFIUM_OUT"
 cd $PDFIUM_SRC && $GN gen $PDFIUM_OUT

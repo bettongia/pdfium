@@ -81,6 +81,7 @@ build_pdfium_linux_arm64: export PDFIUM_CPU := arm64
 build_pdfium_linux_arm64: export PDFIUM_PLATFORM := $(PDFIUM_OS)-$(PDFIUM_CPU)
 build_pdfium_linux_arm64: export PDFIUM_OUT := $(PDFIUM_SRC)/out/$(PDFIUM_PLATFORM)
 build_pdfium_linux_arm64: setup build_pdfium_linux_setup
+	python3 $(PDFIUM_SRC)/build/linux/sysroot_scripts/install-sysroot.py --arch=arm64
 	@scripts/build_linux.sh
 .PHONY: build_pdfium_linux_arm64
 
