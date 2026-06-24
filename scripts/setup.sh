@@ -135,27 +135,53 @@ if [ -f "$LIBJPEG_TURBO_BUILD" ] && grep -q 'use_blink' "$LIBJPEG_TURBO_BUILD"; 
     echo "setup: patched libjpeg_turbo/BUILD.gn to remove use_blink assertion"
 fi
 
-# Patch: partition_alloc/BUILD.gn — add libs=["unwind"] for Android.
-# stack_trace_android.cc calls _Unwind_Backtrace and _Unwind_GetIP from
-# <unwind.h>. The Chromium Android toolchain passes --unwindlib=none to the
-# linker, preventing implicit unwind library linkage. Without an explicit
-# -lunwind, linking the allocator_base component fails with undefined symbol.
+# Patch: partition_alloc — replace stack_trace_android.cc with stack_trace_linux.cc.
+# stack_trace_android.cc uses _Unwind_Backtrace/_Unwind_GetIP from <unwind.h>.
+# The Chromium toolchain passes --unwindlib=none to the Android linker, and
+# libunwind is not in the NDK sysroot library search path when building
+# standalone component shared libraries (-z defs). stack_trace_linux.cc
+# provides CollectStackTrace() via frame pointers (arm64, where
+# can_unwind_with_frame_pointers=true) or returns 0 (x64) — no external dep.
+# OutputStackTrace() in stack_trace_posix.cc is guarded !IS_ANDROID because
+# android.cc normally defines it; removing that guard re-enables the posix
+# version now that android.cc is no longer compiled.
 PA_BUILD="$PDFIUM_SRC/base/allocator/partition_allocator/src/partition_alloc/BUILD.gn"
-if [ -f "$PA_BUILD" ] && grep -q 'stack_trace_android.cc' "$PA_BUILD" && ! grep -q '"unwind"' "$PA_BUILD"; then
-    python3 - "$PA_BUILD" << 'PATCHEOF'
+PA_POSIX="$PDFIUM_SRC/base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/debug/stack_trace_posix.cc"
+if [ -f "$PA_BUILD" ] && grep -q 'stack_trace_android.cc' "$PA_BUILD"; then
+    python3 - "$PA_BUILD" "$PA_POSIX" << 'PATCHEOF'
 import sys
-path = sys.argv[1]
-with open(path) as f:
+build_gn, posix_cc = sys.argv[1], sys.argv[2]
+
+with open(build_gn) as f:
     text = f.read()
-# Insert libs = ["unwind"] into the if (is_android) sources block so that
-# the allocator_base component links against libunwind on Android.
-marker = '      "partition_alloc_base/native_library_posix.cc",\n      ]'
-replacement = marker + '\n      libs = [ "unwind" ]  # stack_trace_android.cc uses _Unwind_Backtrace'
-text = text.replace(marker, replacement, 1)
-with open(path, 'w') as f:
+text = text.replace(
+    '        "partition_alloc_base/debug/stack_trace_android.cc",\n',
+    '        "partition_alloc_base/debug/stack_trace_linux.cc",\n',
+    1,
+)
+with open(build_gn, 'w') as f:
+    f.write(text)
+
+with open(posix_cc) as f:
+    text = f.read()
+# Remove the opening guard comment + #if line
+text = text.replace(
+    '// stack_trace_android.cc defines its own OutputStackTrace.\n'
+    '#if !PA_BUILDFLAG(IS_ANDROID)\n',
+    '',
+    1,
+)
+# Remove the closing #endif so OutputStackTrace() is compiled on Android too
+text = text.replace(
+    '#endif  // !PA_BUILDFLAG(IS_ANDROID)\n\n'
+    '}  // namespace partition_alloc::internal::base::debug',
+    '}  // namespace partition_alloc::internal::base::debug',
+    1,
+)
+with open(posix_cc, 'w') as f:
     f.write(text)
 PATCHEOF
-    echo "setup: patched partition_alloc/BUILD.gn to add -lunwind for Android"
+    echo "setup: patched partition_alloc to use stack_trace_linux.cc for Android (no _Unwind_Backtrace)"
 fi
 
 echo "setup: gclient sync complete. PDFium source is at $PDFIUM_SRC"
