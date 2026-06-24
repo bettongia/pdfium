@@ -1,0 +1,9 @@
+# Clean-room PDFium build workspace (depot_tools + full PDFium source checkout).
+# Remove with `make purge` to start fresh.
+build/
+
+# Built PDFium binaries staged by build scripts.
+dist/
+
+# Build logs
+*.log

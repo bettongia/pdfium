@@ -1,0 +1,26 @@
+{
+  "version": "0.2",
+  "words": [
+    "buildtools",
+    "clang",
+    "dylib",
+    "Emscripten",
+    "ffigen",
+    "fvisibility",
+    "gclient",
+    "genhtml",
+    "harfbuzz",
+    "lcov",
+    "libc",
+    "libjpeg",
+    "libpdfium",
+    "llvm",
+    "llvmorg",
+    "NDK",
+    "ninja",
+    "pdfium",
+    "vpython",
+    "wasm",
+    "xcframework"
+  ]
+}
