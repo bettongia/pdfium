@@ -46,8 +46,9 @@ solutions = [
       "pdfium/buildtools/reclient" : None,
     },
     "custom_vars" : {
-      "checkout_v8"   : False,
-      "checkout_skia" : False,
+      "checkout_v8"       : False,
+      "checkout_skia"     : False,
+      "checkout_android"  : True,
     },
   },
 ]
