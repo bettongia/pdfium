@@ -174,12 +174,13 @@ dylibs/shared libs (`codesign --force --sign -`) to clear the
 
 ### Phase 4 — Release publishing
 
-- [ ] Add a smoke test step before publishing: load each platform binary and
-      call `FPDF_InitLibraryWithConfig()` / `FPDF_DestroyLibrary()`. Fail the
-      pipeline and block the Release if any platform binary does not pass.
-- [ ] Generate `checksums.sha256` covering all platform artifacts and
+- [x] Add a smoke test step before publishing: load each platform binary and
+      call `FPDF_InitLibraryWithConfig()` / `FPDF_DestroyLibrary()`. Runs
+      natively on macOS (dylib) and Linux x64/arm64 (.so). iOS (static
+      xcframework) and Android (requires Android runtime) are noted as skipped.
+- [x] Generate `checksums.sha256` covering all platform artifacts and
       `VERSION.txt`.
-- [ ] Add release publishing step to GitHub Actions: on successful build and
+- [x] Add release publishing step to GitHub Actions: on successful build and
       smoke test, create a GitHub Release tagged `pdfium-<full-sha>` and attach
       all platform binaries, `VERSION.txt`, and `checksums.sha256`.
 
