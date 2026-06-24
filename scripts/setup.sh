@@ -30,21 +30,16 @@ fi
 
 if [ ! -d "$PDFIUM_SRC" ]; then
     PATH="$DEPOT_TOOLS:$PATH"
-    mkdir -p $BUILD_DIR/pdfium_checkout
+    mkdir -p "$BUILD_DIR/pdfium_checkout"
 
-    # Write .gclient directly rather than using `gclient config` so we can set
-    # checkout_rbe_client=False. The RBE (Remote Build Execution) client is a
-    # Google-internal distributed compile tool; its linux-arm64 CIPD package
-    # does not exist, and it is never needed for local or container builds.
+    # Write .gclient with managed:False so that gclient sync never resets
+    # our manually-cloned pdfium working tree (or any DEPS patches on it).
     cat > "$BUILD_DIR/pdfium_checkout/.gclient" << 'GCLIENTEOF'
 solutions = [
   { "name"        : "pdfium",
     "url"         : "https://pdfium.googlesource.com/pdfium.git",
     "deps_file"   : "DEPS",
     "managed"     : False,
-    "custom_deps" : {
-      "pdfium/buildtools/reclient" : None,
-    },
     "custom_vars" : {
       "checkout_v8"       : False,
       "checkout_skia"     : False,
@@ -54,9 +49,29 @@ solutions = [
 ]
 GCLIENTEOF
 
-    echo "setup: running gclient sync (rev $PDFIUM_REVISION) — this downloads several GB and may take 20-40 minutes on first run ..."
+    # Pre-clone pdfium at the target revision before running gclient sync.
+    # This lets us patch DEPS (see below) before gclient resolves the dep
+    # graph. The buildtools/reclient dep in DEPS has no condition guard, so
+    # gclient tries to download infra/rbe/client/linux-arm64 — a package
+    # that does not exist in CIPD. Setting custom_deps:None does not reliably
+    # suppress CIPD packages in modern gclient; patching DEPS is required.
+    # With managed:False, gclient sync leaves the working tree (and our patch)
+    # untouched.
+    echo "setup: cloning pdfium at $PDFIUM_REVISION ..."
+    git clone https://pdfium.googlesource.com/pdfium.git "$PDFIUM_SRC"
+    git -C "$PDFIUM_SRC" checkout "$PDFIUM_REVISION"
+
+    # Patch DEPS: add condition=False to buildtools/reclient so that gclient
+    # skips the infra/rbe/client CIPD package entirely on all platforms.
+    # RBE (Remote Build Execution) is a Google-internal distributed compile
+    # service; we never use it and its linux-arm64 package does not exist.
+    sed -i.bak "s|'buildtools/reclient': {|'buildtools/reclient': {\n    'condition': 'False',|" \
+        "$PDFIUM_SRC/DEPS"
+    echo "setup: patched DEPS to skip reclient CIPD download"
+
+    echo "setup: running gclient sync — this downloads several GB and may take 20-40 minutes on first run ..."
     cd "$BUILD_DIR/pdfium_checkout" && \
-        gclient sync --revision $PDFIUM_REVISION
+        PATH="$DEPOT_TOOLS:$PATH" gclient sync --revision "pdfium@$PDFIUM_REVISION"
 fi
 
 # Patch: ios_sdk.gni references ios_automatically_manage_certs in testing/test.gni
