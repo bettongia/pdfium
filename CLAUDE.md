@@ -91,56 +91,53 @@ To run a single test file directly:
 dart test test/pdf_types_test.dart
 ```
 
-### PDFium build commands
+### PDFium binary commands
 
-PDFium must be built from source (or fetched via `make fetch_pdfium`) before
-integration tests that load the native library can run. All build artefacts are
-confined to `.build/` (gitignored) and the staged binary goes to
-`third_party/pdfium_bin/` (also gitignored).
+Pre-built PDFium binaries are fetched from GitHub Releases. No local C++
+toolchain is required.
 
 ```bash
-make setup              # Bootstrap depot_tools + gclient sync (run once; 20–40 min)
-make build_pdfium_macos # Compile libpdfium.dylib and stage to third_party/pdfium_bin/
-make ffi_bindings       # Regenerate Dart FFI bindings from third_party/pdfium/public/
-make clean_build        # Remove .build/ entirely to start fresh
+make fetch_pdfium          # Download the binary matching PDFIUM_VERSION
+make check_pdfium_version  # Verify installed binary matches PDFIUM_VERSION
+make ffi_bindings          # Regenerate Dart FFI bindings from third_party/pdfium/public/
 ```
 
-**Local build workflow:**
+**Developer setup:**
 
-1. Run `make setup` once to download depot_tools and the PDFium source tree.
-2. Run `make build_pdfium_macos` to compile and stage the binary.
+1. Ensure `gh` (GitHub CLI) is installed and authenticated.
+2. Run `make fetch_pdfium` — downloads and installs the platform binary into
+   `third_party/pdfium_bin/` (gitignored).
 3. Run `make test` — the smoke test in `test/pdfium_smoke_test.dart` exercises
    the library load/init/destroy round-trip.
 
-**Binary layout (canonical contract):**
+**Binary layout:**
 
 ```
-third_party/pdfium_bin/       ← gitignored; populated by make build_pdfium_macos
+third_party/pdfium_bin/       ← gitignored; populated by make fetch_pdfium
   macos_arm64/
-    libpdfium.dylib           ← loaded by Dart FFI
-  VERSION                     ← PDFium commit SHA + build date (ISO-8601 UTC)
+    libpdfium.dylib           ← loaded by Dart FFI on macOS arm64
+  linux_x64/
+    libpdfium.so              ← loaded by Dart FFI on Linux x86_64
+  linux_arm64/
+    libpdfium.so              ← loaded by Dart FFI on Linux arm64
+  VERSION                     ← installed PDFium commit SHA (single line)
 ```
 
-**Versioning convention:** The `VERSION` file contains two lines:
+**Bumping the PDFium SHA:**
 
-```
-pdfium_commit=<git SHA>
-build_date=<YYYY-MM-DDTHH:MM:SSZ>
-```
+1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
+2. `git subtree pull` to update `third_party/pdfium/` (public headers).
+3. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`.
+4. Commit and push — CI rebuilds all platform binaries and publishes a new
+   GitHub Release tagged `pdfium-<sha>`.
+5. `make fetch_pdfium` to install the new binary locally.
 
-**Codesigning note:** Locally-built dylibs are never assigned the
-`com.apple.quarantine` xattr, so Gatekeeper does not apply and `dlopen()` loads
-them without ad-hoc signing. Ad-hoc signing is handled by the fetch pipeline
-(see `plan_pdfium_build_pipeline.md`).
-
-**Side-effect note:** `gclient` writes a small authentication cache to
-`~/.config/gclient`. Everything else stays under `.build/`.
+See `docs/spec/binary_distribution.md` for the full distribution contract
+(artifact layout, tag format, checksum verification, smoke test coverage).
 
 **FFI bindings:** The generated file `lib/src/generated/pdfium_bindings.dart`
-is committed so that developers without the C++ toolchain can still build and
-run Dart code. Regenerate with `make ffi_bindings` whenever PDFium headers
-change. PDFium headers are added incrementally as feature plans are
-implemented.
+is committed so that developers can build and run Dart code without the build
+pipeline. Regenerate with `make ffi_bindings` whenever PDFium headers change.
 
 ## Architecture
 

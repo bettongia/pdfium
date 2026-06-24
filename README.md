@@ -14,87 +14,51 @@ text extraction, and annotation support via Dart FFI.
 - Page thumbnail generation
 - Table of contents (bookmark tree) extraction
 
-## Building PDFium
+## PDFium binary
 
-PDFium must be compiled from source before any integration tests or Dart FFI
-code can run. The build is managed via `make` targets that operate entirely
-within the project's `.build/` directory — no system-wide changes are required.
-
-> **Note:** The `.build/` workspace directory and `third_party/pdfium_bin/`
-> directory are gitignored. Every developer must build the library locally (or
-> fetch it from the CI pipeline — see
-> `docs/plans/plan_pdfium_build_pipeline.md`).
+Pre-built PDFium binaries are published as GitHub Releases from the
+[`pdfium-build`](../../tree/pdfium-build) orphan branch. No local C++ toolchain
+is required.
 
 ### Prerequisites
 
-- macOS with Xcode installed (not just Command Line Tools):
-  ```bash
-  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-  xcodebuild -version   # must show Xcode, not CLT only
-  ```
-- Python 3.8 or later (`python3 --version`)
-- Git
+- [`gh`](https://cli.github.com/) (GitHub CLI) — installed and authenticated.
 
-### Step 1 — Bootstrap the workspace
-
-Run once. Downloads `depot_tools`, configures a `gclient` workspace, and runs
-`gclient sync` to download the full PDFium source tree and clang toolchain
-(approximately 2–5 GB; takes 20–40 minutes on first run).
+### Install
 
 ```bash
-make setup
+make fetch_pdfium
 ```
 
-> **Side-effect note:** `gclient` writes a small authentication cache to
-> `~/.config/gclient`. All other files (source tree, clang toolchain) stay under
-> `.build/`.
+Downloads the binary matching `PDFIUM_VERSION` for your platform, verifies its
+SHA256 checksum, and installs it into `third_party/pdfium_bin/` (gitignored).
+The command is idempotent — it does nothing if the correct version is already
+installed.
 
-### Step 2 — Build
-
-Compiles `libpdfium.dylib` for macOS arm64 and stages it to
-`third_party/pdfium_bin/macos_arm64/`. A full build takes 10–30 minutes;
-incremental rebuilds are fast.
+### Verify
 
 ```bash
-make build_pdfium_macos
+make check_pdfium_version
 ```
 
-The binary layout produced here is:
+Confirms the installed binary matches `PDFIUM_VERSION`. This check runs
+automatically as part of `make pre_commit`.
 
-```
-third_party/pdfium_bin/
-  macos_arm64/
-    libpdfium.dylib     ← loaded by Dart FFI at runtime
-  VERSION               ← PDFium commit SHA and build date
-```
+### Bumping the PDFium version
 
-This layout is the canonical contract shared with the standalone build pipeline
-(`plan_pdfium_build_pipeline.md`). Any change to it must be coordinated across
-both plans.
+1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
+2. `git subtree pull` to update `third_party/pdfium/` (public headers).
+3. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`.
+4. Commit and push to `main` — CI rebuilds all platform binaries and publishes
+   a new GitHub Release.
+5. `make fetch_pdfium` to install the new binary locally.
 
-### Resetting the workspace
-
-To start completely fresh (for example, after a failed `gclient sync`):
-
-```bash
-make clean_build   # removes .build/ entirely
-make setup         # re-bootstrap
-```
-
-### Regenerating FFI bindings
-
-If the PDFium public headers change, regenerate the Dart FFI bindings with:
-
-```bash
-make ffi_bindings
-```
-
-The generated file (`lib/src/generated/pdfium_bindings.dart`) is committed so
-developers without the C++ toolchain can still build and edit Dart code.
+See [`docs/spec/binary_distribution.md`](docs/spec/binary_distribution.md) for
+the full distribution contract.
 
 ## Getting started
 
-1. Build the PDFium library (see above).
+1. Run `make fetch_pdfium` to install the PDFium binary (see above).
 2. Run `make test` to validate the smoke test passes.
 
 ## Usage

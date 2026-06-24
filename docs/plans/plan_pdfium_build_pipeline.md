@@ -188,14 +188,16 @@ dylibs/shared libs (`codesign --force --sign -`) to clear the
 
 - [ ] Validate `make fetch_pdfium` end-to-end: downloads, unpacks, verifies
       checksums, and signs binaries correctly.
-- [ ] Write `docs/spec/binary_distribution.md` formalising the binary
+      _Blocked: requires a live GitHub Release. Unblock by pushing main and
+      allowing CI to publish the first release._
+- [x] Write `docs/spec/binary_distribution.md` formalising the binary
       distribution contract: artifact layout, tag format, `VERSION` file format,
       fetch mechanism, and checksum verification.
-- [ ] Update `CLAUDE.md` to document the `PDFIUM_VERSION` bump workflow
+- [x] Update `CLAUDE.md` to document the `PDFIUM_VERSION` bump workflow
       (including the required `git subtree pull` and `make ffi_bindings` steps)
       and `make fetch_pdfium`. Point to `docs/spec/binary_distribution.md` as
       the authoritative reference.
-- [ ] Update `README.md` to reference the `pdfium-build` branch and the fetch
+- [x] Update `README.md` to reference the `pdfium-build` branch and the fetch
       workflow.
 - [ ] Move this plan to `docs/plans/completed/` and update status to Complete.
 
