@@ -43,7 +43,40 @@ cd $PDFIUM_SRC && ninja -C $PDFIUM_OUT pdfium_standalone -j$(nproc)
 echo "staging shared library to $PDFIUM_DIST/$PDFIUM_PLATFORM/ ..."
 mkdir -p $PDFIUM_DIST/$PDFIUM_PLATFORM
 
-cp $PDFIUM_OUT/libpdfium.so $PDFIUM_DIST/$PDFIUM_PLATFORM/
+# On Android the Chromium toolchain links the full binary to lib.unstripped/
+# and writes a stripped copy to the root output dir. Use the stripped copy;
+# fall back to lib.unstripped/ if the stripped file is missing or suspiciously
+# small (a sign that --gc-sections removed all code due to hidden symbols).
+STRIPPED="$PDFIUM_OUT/libpdfium.so"
+UNSTRIPPED="$PDFIUM_OUT/lib.unstripped/libpdfium.so"
+MIN_BYTES=1048576  # 1 MiB — a real PDFium .so is >5 MiB
+
+pick_source() {
+    local stripped_size=0
+    local unstripped_size=0
+    [ -f "$STRIPPED" ]   && stripped_size=$(stat -c %s "$STRIPPED")
+    [ -f "$UNSTRIPPED" ] && unstripped_size=$(stat -c %s "$UNSTRIPPED")
+
+    if [ "$stripped_size" -ge "$MIN_BYTES" ]; then
+        echo "$STRIPPED"
+    elif [ "$unstripped_size" -ge "$MIN_BYTES" ]; then
+        echo "$UNSTRIPPED"
+    else
+        echo ""
+    fi
+}
+
+SRC=$(pick_source)
+if [ -z "$SRC" ]; then
+    echo "ERROR: libpdfium.so is too small — COMPONENT_BUILD may not be defined." >&2
+    echo "  stripped  (${STRIPPED}): $(stat -c %s "$STRIPPED" 2>/dev/null || echo missing) bytes" >&2
+    echo "  unstripped (${UNSTRIPPED}): $(stat -c %s "$UNSTRIPPED" 2>/dev/null || echo missing) bytes" >&2
+    echo "Check that setup.sh's COMPONENT_BUILD patch was applied to build/config/compiler/BUILD.gn." >&2
+    exit 1
+fi
+
+echo "copying from $SRC ..."
+cp "$SRC" $PDFIUM_DIST/$PDFIUM_PLATFORM/libpdfium.so
 
 echo "writing VERSION file ..."
 printf "%s" \
