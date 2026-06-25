@@ -40,7 +40,7 @@
 //   outside the PDFium isolate.
 
 import 'dart:ffi' as ffi;
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, Platform;
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -48,6 +48,7 @@ import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
 import '../generated/pdfium_bindings.dart';
+import '../pdfium_version.dart';
 import '../rendering/pdf_page_size.dart';
 import 'isolate_messages.dart';
 import 'pdf_date_parser.dart';
@@ -91,7 +92,9 @@ void pdfiumIsolateEntryPoint(SendPort bootstrapPort) {
     if (message is PdfiumInitCommand) {
       // Initialise the library and send the command port back.
       try {
-        final dylib = ffi.DynamicLibrary.open(message.dylibPath);
+        final dylib = message.dylibPath != null
+            ? ffi.DynamicLibrary.open(message.dylibPath!)
+            : _openLibrary();
         bindings = PdfiumBindings(dylib);
         bindings!.FPDF_InitLibraryWithConfig(ffi.nullptr);
         message.replyPort.send(PdfiumInitResponse(commandReceivePort.sendPort));
@@ -2758,9 +2761,9 @@ class PdfiumIsolate {
     final commandPort = await bootstrapReceivePort.first as SendPort;
     bootstrapReceivePort.close();
 
-    // Send the init command with the dylib path.
+    // Send the init command with the dylib path (null = auto-detect).
     final initReceivePort = ReceivePort();
-    final resolvedPath = dylibPath ?? _defaultDylibPath();
+    final resolvedPath = dylibPath ?? _defaultDylibPathOrNull();
     commandPort.send(PdfiumInitCommand(initReceivePort.sendPort, resolvedPath));
 
     // Wait for the init response.
@@ -2809,12 +2812,100 @@ class PdfiumIsolate {
   }
 }
 
-String _defaultDylibPath() {
+/// Returns an explicit dylib path when the legacy `third_party/pdfium_bin/`
+/// layout (populated by `make fetch_pdfium`) is present, otherwise `null`.
+///
+/// A `null` return causes the spawned isolate to call [_openLibrary], which
+/// uses platform-appropriate auto-detection for the native-assets hook case.
+///
+/// iOS and Android always return `null`: iOS loads from the process image
+/// (static xcframework linked at build time) and Android loads by bare name
+/// from the APK `jni/{abi}/` directory.
+String? _defaultDylibPathOrNull() {
+  if (Platform.isIOS || Platform.isAndroid) return null;
   if (Platform.isLinux) {
     final arch = ffi.Abi.current() == ffi.Abi.linuxArm64
         ? 'linux_arm64'
         : 'linux_x64';
-    return 'third_party/pdfium_bin/$arch/libpdfium.so';
+    final legacy = 'third_party/pdfium_bin/$arch/libpdfium.so';
+    if (File(legacy).existsSync()) return legacy;
+    return null;
   }
-  return 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+  if (Platform.isMacOS) {
+    const legacy = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+    if (File(legacy).existsSync()) return legacy;
+    return null;
+  }
+  return null;
+}
+
+/// Opens the PDFium [ffi.DynamicLibrary] for the current platform using
+/// native-assets auto-detection.
+///
+/// Called by the spawned isolate when [PdfiumInitCommand.dylibPath] is `null`
+/// (i.e. the native-assets hook staged the binary rather than `make
+/// fetch_pdfium`).
+///
+/// Platform strategy:
+///   - **iOS**: PDFium is statically linked by the SPM plugin shim →
+///     [ffi.DynamicLibrary.process].
+///   - **Android**: the `.so` is bundled in the APK `jni/{abi}/` directory by
+///     the Flutter build → [ffi.DynamicLibrary.open] by bare name.
+///   - **Linux**: native-assets adds the library directory to `LD_LIBRARY_PATH`
+///     → [ffi.DynamicLibrary.open] by bare name.
+///   - **macOS**: tries the Flutter framework bundle path first, then probes
+///     several absolute candidate paths (dart build output, dart test staged
+///     location, hook cache).
+ffi.DynamicLibrary _openLibrary() {
+  if (Platform.isIOS) {
+    return ffi.DynamicLibrary.process();
+  }
+  if (Platform.isAndroid) {
+    return ffi.DynamicLibrary.open('libpdfium.so');
+  }
+  if (Platform.isLinux) {
+    return ffi.DynamicLibrary.open('libpdfium.so');
+  }
+  if (Platform.isMacOS) {
+    // Strategy 1: Flutter app bundle — the build system wraps
+    // DynamicLoadingBundled dylibs in versioned .framework bundles.
+    // For libpdfium.dylib the framework name is 'pdfium'.
+    try {
+      return ffi.DynamicLibrary.open('pdfium.framework/pdfium');
+    } catch (_) {
+      // Fall through to strategy 2.
+    }
+
+    // Strategy 2: probe absolute candidate paths.
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final cwd = Directory.current.path;
+    const dylib = 'libpdfium.dylib';
+    final candidates = <String>[
+      // dart build cli: bundle/bin/<exe> → bundle/lib/<dylib>.
+      '$exeDir/../lib/$dylib',
+      // dart test / dart run (JIT): build system stages to .dart_tool/lib/.
+      '$cwd/.dart_tool/lib/$dylib',
+      // Hook cache direct path (fallback if staging hasn't copied the file).
+      '$cwd/.dart_tool/betto_pdfium/$pdfiumSha/$dylib',
+    ];
+
+    for (final path in candidates) {
+      final f = File(path);
+      if (f.existsSync()) {
+        try {
+          return ffi.DynamicLibrary.open(f.absolute.path);
+        } catch (_) {
+          // Try next candidate.
+        }
+      }
+    }
+
+    // All strategies failed — surface the diagnostic error from the framework
+    // path attempt so the message mentions the expected bundle layout.
+    return ffi.DynamicLibrary.open('pdfium.framework/pdfium');
+  }
+  throw UnsupportedError(
+    'betto_pdfium: unsupported platform ${Platform.operatingSystem}. '
+    'Supported: macOS arm64, Linux x64/arm64, Android, iOS.',
+  );
 }

@@ -49,8 +49,15 @@ class PdfiumInitCommand extends PdfiumCommand {
   /// Creates an init command.
   const PdfiumInitCommand(super.replyPort, this.dylibPath);
 
-  /// The filesystem path to the PDFium dynamic library.
-  final String dylibPath;
+  /// The filesystem path to the PDFium dynamic library, or `null` to let
+  /// the isolate auto-detect the library via [_openLibrary].
+  ///
+  /// Pass a non-null path to override auto-detection (e.g. for the legacy
+  /// `third_party/pdfium_bin/` developer layout populated by
+  /// `make fetch_pdfium`). Pass `null` when the native-assets hook has staged
+  /// the library (pub.dev users, CI without `make fetch_pdfium`) or when
+  /// loading from the process image (iOS static link).
+  final String? dylibPath;
 }
 
 /// Load a PDF document from raw bytes.

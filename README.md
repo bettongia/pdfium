@@ -19,11 +19,23 @@ text extraction, and annotation support via Dart FFI.
 Pre-built PDFium binaries are published as GitHub Releases from the
 `pdfium-build` orphan branch. No local C++ toolchain is required.
 
-### Prerequisites
+### Package consumers
+
+When you add `betto_pdfium` to your project, the native-assets hook
+(`hook/build.dart`) downloads the correct platform binary automatically the
+first time you run `dart build`, `dart run`, or `dart test`. No manual setup
+is required.
+
+### Library developers
+
+Working on `betto_pdfium` itself (e.g. to regenerate FFI bindings after a
+PDFium header change) requires the developer toolchain:
+
+#### Prerequisites
 
 - [`gh`](https://cli.github.com/) (GitHub CLI) — installed and authenticated.
 
-### Install
+#### Fetch binary and headers
 
 ```bash
 make fetch_pdfium
@@ -34,31 +46,55 @@ verifies SHA256 checksums, and installs them into `third_party/pdfium_bin/` and
 `third_party/pdfium/` (both gitignored). The command is idempotent — it does
 nothing if the correct version is already installed.
 
-### Verify
+Note: `make test` works without this step — the native-assets hook downloads
+the binary into `.dart_tool/betto_pdfium/` automatically. `make fetch_pdfium`
+is only needed to regenerate FFI bindings (`make ffi_bindings`).
+
+#### Verify
 
 ```bash
 make check_pdfium_version
 ```
 
-Confirms the installed binary and headers match `PDFIUM_VERSION`. This check
-runs automatically as part of `make pre_commit`.
+Confirms the installed binary and headers match `PDFIUM_VERSION`.
 
 ### Bumping the PDFium version
+
+This is a two-commit workflow — the SHA-256 digests in `version_pdfium.json`
+are only known after CI has built and uploaded the binaries.
+
+**Commit 1 — trigger the build:**
 
 1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
 2. Commit and push to `main` — CI rebuilds all platform binaries, packages the
    public headers from the same commit, and publishes a new GitHub Release.
-3. `make fetch_pdfium` to install the new binary and headers locally.
-4. If the public API changed: `make ffi_bindings` to regenerate
-   `lib/src/generated/pdfium_bindings.dart`, then commit the updated bindings.
 
-See [`docs/spec/binary_distribution.md`](docs/spec/binary_distribution.md) for
-the full distribution contract.
+**Wait for CI to finish.**
+
+**Commit 2 — update the hook manifest:**
+
+3. `make update_pdfium_manifest` — reads `checksums.sha256` from the
+   just-published release, rewrites `version_pdfium.json` and
+   `lib/src/pdfium_version.dart`.
+4. `make fetch_pdfium` to install the new binary and headers locally.
+5. If the public API changed: `make ffi_bindings` to regenerate
+   `lib/src/generated/pdfium_bindings.dart`.
+6. Commit `version_pdfium.json`, `lib/src/pdfium_version.dart`, and any
+   updated bindings.
+
+See [`docs/spec/01_binary_distribution.md`](docs/spec/01_binary_distribution.md)
+for the full distribution contract.
 
 ## Getting started
 
-1. Run `make fetch_pdfium` to install the PDFium binary (see above).
-2. Run `make ffi_bindings` to make sure the FFI bindings match the binaries.
+```bash
+dart test   # hook downloads the binary automatically; all tests should pass
+```
+
+For library development (FFI binding regeneration, etc.):
+
+1. Run `make fetch_pdfium` to install the PDFium binary and headers.
+2. Run `make ffi_bindings` to regenerate FFI bindings if headers changed.
 3. Run `make test` to validate the smoke test passes.
 
 ## Usage

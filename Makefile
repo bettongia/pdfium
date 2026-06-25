@@ -8,10 +8,10 @@ include site.mk
 default: prepare license_check format analyze coverage doc_site
 .PHONY: default
 
-pre_commit: check_pdfium_version format_check analyze license_check test
+pre_commit: format_check analyze license_check test
 .PHONY: pre_commit
 
-cicd: fetch_pdfium ffi_bindings format_check analyze license_check test doc_site
+cicd: format_check analyze license_check test doc_site
 .PHONY: cicd
 
 # END: Primary tasks
@@ -21,7 +21,7 @@ format:
 .PHONY: format
 
 format_check:
-	dart format --output=none --set-exit-if-changed lib/ test/ example/
+	dart format --output=none --set-exit-if-changed lib/ test/ example/ hook/
 .PHONY: format_check
 
 analyze:

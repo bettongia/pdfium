@@ -45,46 +45,34 @@ From `gh release view pdfium-<sha> --repo bettongia/pdfium`:
 | `libpdfium-android-x86_64.so`        | Android x86_64 | `DynamicLibrary.open('libpdfium.so')` |
 | `libpdfium-ios-arm64.xcframework.zip` | iOS arm64      | `DynamicLibrary.process()`  |
 
-### Library loading: the current gap
+### Library loading: RESOLVED
 
-`_defaultDylibPath()` in `lib/src/document/pdfium_isolate.dart` only handles
-Linux and macOS. It returns a `String` path, always used with
-`DynamicLibrary.open()`. iOS requires `DynamicLibrary.process()` (static link),
-which cannot be expressed as a path string.
+`_defaultDylibPath()` in `lib/src/document/pdfium_isolate.dart` only handled
+Linux and macOS. These changes were implemented as part of the native-assets
+hook work.
 
-**Required changes to `lib/src/document/`:**
+**Implemented in `lib/src/document/`:**
 
-1. `isolate_messages.dart` — `PdfiumInitCommand.dylibPath: String` →
-   `dylibPath: String?`; `null` means "use `DynamicLibrary.process()`".
+1. `isolate_messages.dart` — `PdfiumInitCommand.dylibPath` changed from
+   `String` to `String?`; `null` means "auto-detect via `_openLibrary()`".
 
-2. `pdfium_isolate.dart` (isolate entry point, line ~94) — change:
-   ```dart
-   final dylib = ffi.DynamicLibrary.open(message.dylibPath);
-   ```
-   to:
+2. `pdfium_isolate.dart` (isolate entry point) — now dispatches on nullability:
    ```dart
    final dylib = message.dylibPath != null
        ? ffi.DynamicLibrary.open(message.dylibPath!)
-       : ffi.DynamicLibrary.process();
+       : _openLibrary();
    ```
 
-3. `pdfium_isolate.dart` — extend `_defaultDylibPath()` (rename to
-   `_defaultDylibPathOrNull()`, return `String?`):
-   ```dart
-   String? _defaultDylibPathOrNull() {
-     if (Platform.isAndroid) return 'libpdfium.so';
-     if (Platform.isIOS) return null;            // static link → process()
-     if (Platform.isLinux) {
-       final arch = ffi.Abi.current() == ffi.Abi.linuxArm64
-           ? 'linux_arm64' : 'linux_x64';
-       return 'third_party/pdfium_bin/$arch/libpdfium.so';
-     }
-     return 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
-   }
-   ```
+3. `pdfium_isolate.dart` — `_defaultDylibPath()` replaced by two functions:
+   - `_defaultDylibPathOrNull()` — returns the legacy `third_party/pdfium_bin/`
+     path if it exists (backward compat with `make fetch_pdfium`), else `null`.
+     Returns `null` immediately for iOS and Android (no legacy path for mobile).
+   - `_openLibrary()` — full multi-strategy loader:
+     iOS → `DynamicLibrary.process()`, Android/Linux → bare `libpdfium.so`,
+     macOS → tries framework bundle, then exe-adjacent, then hook cache.
 
-4. `pdfium_isolate.dart` — `_spawn()`: replace `_defaultDylibPath()` call
-   with `_defaultDylibPathOrNull()`.
+4. `_spawn()` updated to call `_defaultDylibPathOrNull()` instead of the old
+   `_defaultDylibPath()`.
 
 ### Integration test app structure
 
@@ -252,11 +240,11 @@ Test groups to cover:
 - `integration_test_app/.gitignore`
 - All PDF assets copied from `test/fixtures/` and `test/data/`
 
-### Files to modify
+### Files modified (already done)
 
-- `lib/src/document/isolate_messages.dart` — `dylibPath: String` → `String?`
-- `lib/src/document/pdfium_isolate.dart` — `_defaultDylibPath()` and isolate
-  entry point to handle `null` path (iOS) and Android
+- `lib/src/document/isolate_messages.dart` — `dylibPath: String` → `String?` ✓
+- `lib/src/document/pdfium_isolate.dart` — `_defaultDylibPathOrNull()` and
+  `_openLibrary()` added; isolate entry point updated ✓
 
 ### License headers
 
@@ -286,10 +274,10 @@ flutter test integration_test/ -d <device-id>
 
 ## Implementation plan
 
-- [ ] **`pdfium_isolate.dart` and `isolate_messages.dart`** — make `dylibPath`
-      nullable; handle iOS (`DynamicLibrary.process()`) and Android
-      (`DynamicLibrary.open('libpdfium.so')`) in `_defaultDylibPathOrNull()`.
-      Update unit test if any tests cover `_defaultDylibPath()` directly.
+- [x] **`pdfium_isolate.dart` and `isolate_messages.dart`** — `dylibPath` made
+      nullable; `_openLibrary()` handles iOS (`DynamicLibrary.process()`) and
+      Android (`DynamicLibrary.open('libpdfium.so')`); isolate entry point
+      dispatches on null. Done as part of native-assets hook work.
 
 - [ ] **`fetch_mobile_binaries.sh`** — script that reads `../PDFIUM_VERSION`,
       downloads the corresponding release artifacts, verifies checksums, and

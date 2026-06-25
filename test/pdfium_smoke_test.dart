@@ -23,7 +23,6 @@
 // test suite to pass on machines that have not yet run `make fetch_pdfium`.
 
 import 'dart:ffi';
-import 'dart:io';
 
 import 'package:betto_pdfium/src/generated/pdfium_bindings.dart'
     show PdfiumBindings;
@@ -36,8 +35,11 @@ void main() {
     test('dylib loads and init/destroy round-trip succeeds', () {
       // Skip gracefully if the binary has not yet been fetched.
       final path = nativeDylibPath();
-      if (!File(path).existsSync()) {
-        markTestSkipped('Skipping: $path not found. Run `make fetch_pdfium`.');
+      if (path == null) {
+        markTestSkipped(
+          'Skipping: PDFium binary not found. Run `make fetch_pdfium` or '
+          '`dart pub get` (native-assets hook downloads it automatically).',
+        );
         return;
       }
 

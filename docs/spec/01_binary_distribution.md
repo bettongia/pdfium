@@ -97,16 +97,86 @@ covers every file in the release (including `VERSION.txt` and itself is
 excluded). Verification on macOS uses `shasum -a 256`; on Linux `sha256sum`.
 Both produce compatible output formats.
 
+## Native-assets hook
+
+`hook/build.dart` is the Dart native-assets build hook for `betto_pdfium`. It
+runs automatically when `dart build`, `dart run`, or `dart test` is invoked
+(including by downstream packages). It:
+
+1. Reads `version_pdfium.json` from the package root to determine the platform
+   download URL and expected SHA-256.
+2. Checks a per-version cache at `.dart_tool/betto_pdfium/{sha}/` — if the
+   binary is already present and the SHA-256 sidecar matches, the download is
+   skipped (fast path).
+3. Downloads the binary directly (no archive extraction — PDFium releases plain
+   `.dylib`/`.so` files).
+4. Verifies SHA-256 before an atomic rename to the final path.
+5. On macOS: strips `com.apple.quarantine` and related xattrs via `xattr -c`
+   so `dlopen()` and Flutter's bundler work without Gatekeeper errors.
+6. Emits a `CodeAsset` with `DynamicLoadingBundled` link mode so the build
+   system bundles the binary alongside the executable.
+
+### Platform manifest — `version_pdfium.json`
+
+`version_pdfium.json` at the package root is the single source of truth for the
+hook. It must be updated whenever `PDFIUM_VERSION` is bumped:
+
+```json
+{
+  "pdfium_sha": "<40-char SHA>",
+  "platforms": {
+    "macos-arm64": {
+      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-<sha>/libpdfium-macos-arm64.dylib",
+      "sha256": "<lowercase hex SHA-256>"
+    },
+    "linux-arm64": { "url": "...", "sha256": "..." },
+    "linux-x64":   { "url": "...", "sha256": "..." }
+  }
+}
+```
+
+`lib/src/pdfium_version.dart` exports a `pdfiumSha` constant that must equal
+`version_pdfium.json`'s `pdfium_sha`. It is used at runtime by `_openLibrary()`
+to construct the hook cache path as a fallback when the build system hasn't
+staged the binary to a well-known location.
+
+### Unsupported platforms (hook)
+
+| Platform | Status | Reason |
+|---|---|---|
+| iOS | Hook skipped | PDFium XCFramework is static; Flutter iOS native-assets enforces dynamic link mode |
+| Android | Hook skipped | Build pipeline artifacts not yet in a working state |
+| Windows | Hook skipped | No Windows binary in the build pipeline yet |
+
+On these platforms `_openLibrary()` in the runtime uses platform-appropriate
+fallbacks (`DynamicLibrary.process()` for iOS, bare `libpdfium.so` for Android).
+
 ## Bumping the PDFium version
+
+This is a two-commit workflow because the SHA-256 digests in
+`version_pdfium.json` are only known after the CI pipeline has built and
+uploaded the binaries.
+
+**Commit 1 — trigger the build:**
 
 1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
 2. Commit and push to `main` — CI detects the `PDFIUM_VERSION` change,
    rebuilds all platform binaries from source, packages the `public/` headers
    from the same commit into `pdfium-headers.zip`, smoke-tests all native
    platforms, and publishes a new GitHub Release tagged `pdfium-<sha>`.
-3. Run `make fetch_pdfium` locally to install the new binary and headers.
-4. If the public API changed: run `make ffi_bindings` to regenerate
-   `lib/src/generated/pdfium_bindings.dart` and commit the result.
+
+**Wait for the CI pipeline to finish and publish the release.**
+
+**Commit 2 — update the hook manifest:**
+
+3. Run `make update_pdfium_manifest` — downloads `checksums.sha256` from the
+   just-published release and rewrites `version_pdfium.json` and
+   `lib/src/pdfium_version.dart` in one step.
+4. Run `make fetch_pdfium` to install the new binary and headers locally.
+5. If the public API changed: run `make ffi_bindings` to regenerate
+   `lib/src/generated/pdfium_bindings.dart`.
+6. Commit `version_pdfium.json`, `lib/src/pdfium_version.dart`, and any
+   updated bindings.
 
 The headers are taken from the same pdfium source checkout used to build the
 binaries, so binary ABI and header declarations are always in sync.
