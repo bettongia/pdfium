@@ -27,7 +27,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-apple-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-apple-v2-${{ steps.sha.outputs.sha }}
 
       - name: Build macOS arm64
         working-directory: pdfium-build
@@ -82,7 +82,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-linux-x64-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-linux-x64-v2-${{ steps.sha.outputs.sha }}
 
       - name: Build Linux x86_64
         working-directory: pdfium-build
@@ -126,7 +126,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-linux-arm64-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-linux-arm64-v2-${{ steps.sha.outputs.sha }}
 
       - name: Build Linux arm64
         working-directory: pdfium-build
@@ -169,7 +169,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-android-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-android-v2-${{ steps.sha.outputs.sha }}
 
       - name: Build Android arm64
         working-directory: pdfium-build
