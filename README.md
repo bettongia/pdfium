@@ -17,8 +17,7 @@ text extraction, and annotation support via Dart FFI.
 ## PDFium binary
 
 Pre-built PDFium binaries are published as GitHub Releases from the
-[`pdfium-build`](../../tree/pdfium-build) orphan branch. No local C++ toolchain
-is required.
+`pdfium-build` orphan branch. No local C++ toolchain is required.
 
 ### Prerequisites
 
@@ -49,8 +48,8 @@ automatically as part of `make pre_commit`.
 1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
 2. `git subtree pull` to update `third_party/pdfium/` (public headers).
 3. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`.
-4. Commit and push to `main` — CI rebuilds all platform binaries and publishes
-   a new GitHub Release.
+4. Commit and push to `main` — CI rebuilds all platform binaries and publishes a
+   new GitHub Release.
 5. `make fetch_pdfium` to install the new binary locally.
 
 See [`docs/spec/binary_distribution.md`](docs/spec/binary_distribution.md) for

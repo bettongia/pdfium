@@ -42,7 +42,7 @@ $(SITE_DIR)/index.html: $(_INDEX) $(DOCS_DIR)/.pandoc $(_HEADER) | $(SITE_DIR)
 	pandoc --defaults="$(DOCS_DIR)/.pandoc" $(_INDEX) README.md -o "$(SITE_DIR)/index.html";
 
 $(SITE_DIR)/spec.html: $(DOCS_DIR)/spec/*.md $(DOCS_DIR)/.pandoc $(_HEADER) | $(SITE_DIR)
-	pandoc --defaults="$(DOCS_DIR)/.pandoc" --mathml $(DOCS_DIR)/spec/*.md -o "$(SITE_DIR)/spec.html";
+	pandoc --defaults="$(DOCS_DIR)/.pandoc" --mathml $(DOCS_DIR)/spec/README.md $(DOCS_DIR)/spec/[0-9]*.md -o "$(SITE_DIR)/spec.html";
 
 $(SITE_DIR)/roadmap.html: $(DOCS_DIR)/roadmap/*.md $(DOCS_DIR)/.pandoc $(_HEADER) | $(SITE_DIR)
 	pandoc --defaults="$(DOCS_DIR)/.pandoc" $(DOCS_DIR)/roadmap/*.md -o "$(SITE_DIR)/roadmap.html";

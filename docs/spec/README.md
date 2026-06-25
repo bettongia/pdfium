@@ -1,9 +1,19 @@
-# Specification
+---
+title: Technical Specification
+subtitle: betto_pdfium
+toc-title: "Contents"
+...
 
-This directory contains the technical specification for `betto_pdfium` — a
-pure-Dart package that wraps the [PDFium](https://pdfium.googlesource.com/pdfium/)
-C++ library via Dart FFI. The spec describes the public API, internal
-architecture, platform behaviour, and edge-case handling for each feature area.
+- **Package:** `betto_pdfium`
+- **Version:** 0.1.0-dev.1
+- **Dart SDK:** ≥ 3.12.0
+
+# Overview
+
+`betto_pdfium` is a pure-Dart package that wraps the
+[PDFium](https://pdfium.googlesource.com/pdfium/) C++ library via Dart FFI. The
+spec describes the public API, internal architecture, platform behaviour, and
+edge-case handling for each feature area.
 
 ## Sections
 
@@ -23,17 +33,18 @@ supported platforms.
 
 ### [Text Extraction](text_extraction.md)
 
-Streaming plain-text extraction from a PDF's text layer via `extractPlainText()`.
-Covers the `PdfPageText` result type, the `isPlainTextExtractable()` heuristic,
-scanned-PDF and Unicode-error handling, and the v1 limitation on multi-column /
-RTL reading order.
+Streaming plain-text extraction from a PDF's text layer via
+`extractPlainText()`. Covers the `PdfPageText` result type, the
+`isPlainTextExtractable()` heuristic, scanned-PDF and Unicode-error handling,
+and the v1 limitation on multi-column / RTL reading order.
 
 ### [Annotation Extraction](annotation_extraction.md)
 
 Streaming API for reading all PDF annotations from a document — highlights,
 sticky notes, underlines, ink drawings, shapes, links, and more — as a typed
 `PdfAnnotation` hierarchy. Native platforms only; covers the popup-inlining
-approach, the two-pass algorithm, and the `fpdf_annot.h` Experimental API caveat.
+approach, the two-pass algorithm, and the `fpdf_annot.h` Experimental API
+caveat.
 
 ### [Table of Contents Extraction](toc_extraction.md)
 

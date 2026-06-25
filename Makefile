@@ -59,6 +59,8 @@ coverage.log: lib/** test/**
 prepare:
 	dart pub global activate coverage
 	dart pub get
+	@scripts/check_pdfium_version.sh || echo "  → Run 'make fetch_pdfium' before running tests."
+
 .PHONY: prepare_dart
 
 clean:
