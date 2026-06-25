@@ -54,7 +54,7 @@ coverage.log: lib/** test/**
 	lcov --remove coverage/lcov.info '*/generated/*' -o coverage/lcov.info
 	rm -rf site/coverage
 	mkdir -p site/coverage
-	genhtml coverage/lcov.info -o site/coverage/html
+	genhtml coverage/lcov.info -o site/coverage
 
 prepare:
 	dart pub global activate coverage
@@ -68,7 +68,7 @@ purge: clean
 	$(MAKE) prepare
 
 clean:
-	rm -rf site dist coverage
+	rm -rf site dist coverage doc
 	rm -f *.log
 
 .PHONY: clean
