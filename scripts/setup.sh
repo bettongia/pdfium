@@ -165,8 +165,84 @@ PATCHEOF
     # --force bypasses the "uncommitted changes" check for the managed:False
     # pdfium solution. For unmanaged solutions gclient does NOT reset the
     # working tree on --force; it only skips the cleanliness guard.
-    cd "$BUILD_DIR/pdfium_checkout" && \
-        PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
+    #
+    # Two-pass strategy: infra/rbe/client may appear in a transitive dep's
+    # DEPS file (e.g. build/DEPS) that doesn't exist until gclient has cloned
+    # it. We run gclient once to populate git repos, then scan every downloaded
+    # DEPS for infra/rbe/client, patch them, and retry.
+    cd "$BUILD_DIR/pdfium_checkout"
+    set +e
+    PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
+    _gclient_rc=$?
+    set -e
+    if [ "$_gclient_rc" -ne 0 ]; then
+        echo "setup: first gclient sync failed (rc=$_gclient_rc) — scanning all downloaded DEPS for infra/rbe/client ..."
+        _patched=0
+        while IFS= read -r -d '' _df; do
+            if grep -q 'infra/rbe/client/' "$_df" 2>/dev/null; then
+                python3 - "$_df" << 'RBEEOF'
+import sys
+
+with open(sys.argv[1]) as f:
+    text = f.read()
+
+# Set checkout_reclient=False if declared (belt-and-suspenders)
+text = text.replace("'checkout_reclient': True,", "'checkout_reclient': False,", 1)
+text = text.replace('"checkout_reclient": True,', '"checkout_reclient": False,', 1)
+
+def remove_rbe_dict(t):
+    for q in ("'infra/rbe/client/", '"infra/rbe/client/'):
+        idx = t.find(q)
+        if idx != -1:
+            break
+    else:
+        return t
+    # Walk backward from the string to find the opening { of its dict.
+    # ${platform} contains balanced { } so depth counting stays correct.
+    j, depth = idx - 1, 0
+    while j >= 0:
+        if t[j] == '}': depth += 1
+        elif t[j] == '{':
+            if depth == 0: break
+            depth -= 1
+        j -= 1
+    ds = j
+    # Walk forward to find matching closing }
+    j, depth = ds, 0
+    while j < len(t):
+        if t[j] == '{': depth += 1
+        elif t[j] == '}':
+            depth -= 1
+            if depth == 0: break
+        j += 1
+    de = j
+    # Remove from start of line through dict_end, plus trailing comma
+    ls = t.rfind('\n', 0, ds) + 1
+    after = de + 1
+    while after < len(t) and t[after] in ' \t': after += 1
+    if after < len(t) and t[after] == ',': after += 1
+    return t[:ls] + t[after:]
+
+for _ in range(5):
+    new = remove_rbe_dict(text)
+    if new == text: break
+    text = new
+
+with open(sys.argv[1], 'w') as f:
+    f.write(text)
+RBEEOF
+                echo "setup: patched $_df (removed infra/rbe/client)"
+                _patched=$((_patched + 1))
+            fi
+        done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
+        if [ "$_patched" -gt 0 ]; then
+            echo "setup: retrying gclient sync after patching $_patched DEPS file(s) ..."
+            PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
+        else
+            echo "setup: infra/rbe/client not found in any downloaded DEPS — failure is unrelated, aborting"
+            exit "$_gclient_rc"
+        fi
+    fi
 fi
 
 # Patch: build/config/compiler/BUILD.gn defines COMPONENT_BUILD only when
