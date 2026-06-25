@@ -2851,8 +2851,11 @@ String? _defaultDylibPathOrNull() {
 ///     [ffi.DynamicLibrary.process].
 ///   - **Android**: the `.so` is bundled in the APK `jni/{abi}/` directory by
 ///     the Flutter build → [ffi.DynamicLibrary.open] by bare name.
-///   - **Linux**: native-assets adds the library directory to `LD_LIBRARY_PATH`
-///     → [ffi.DynamicLibrary.open] by bare name.
+///   - **Linux**: probes absolute candidate paths (dart build output, dart test
+///     staged location, hook cache) then falls back to bare name if none exist.
+///     The bare-name fallback only works when `LD_LIBRARY_PATH` is set (e.g.
+///     inside the `dart test` process itself), not in subprocesses spawned by
+///     tests — so absolute paths must be tried first.
 ///   - **macOS**: tries the Flutter framework bundle path first, then probes
 ///     several absolute candidate paths (dart build output, dart test staged
 ///     location, hook cache).
@@ -2864,7 +2867,30 @@ ffi.DynamicLibrary _openLibrary() {
     return ffi.DynamicLibrary.open('libpdfium.so');
   }
   if (Platform.isLinux) {
-    return ffi.DynamicLibrary.open('libpdfium.so');
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final cwd = Directory.current.path;
+    const libName = 'libpdfium.so';
+    final candidates = <String>[
+      // dart build cli: bundle/bin/<exe> → bundle/lib/<libName>.
+      '$exeDir/../lib/$libName',
+      // dart test / dart run (JIT): build system stages to .dart_tool/lib/.
+      '$cwd/.dart_tool/lib/$libName',
+      // Hook cache direct path (fallback if staging hasn't copied the file).
+      '$cwd/.dart_tool/betto_pdfium/$pdfiumSha/$libName',
+    ];
+    for (final path in candidates) {
+      final f = File(path);
+      if (f.existsSync()) {
+        try {
+          return ffi.DynamicLibrary.open(f.absolute.path);
+        } catch (_) {
+          // Try next candidate.
+        }
+      }
+    }
+    // Last resort: bare name works when LD_LIBRARY_PATH is set by the dart
+    // test runner, but not in subprocesses spawned by tests.
+    return ffi.DynamicLibrary.open(libName);
   }
   if (Platform.isMacOS) {
     // Strategy 1: Flutter app bundle — the build system wraps
