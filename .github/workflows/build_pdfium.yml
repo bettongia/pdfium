@@ -201,7 +201,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-android-v2-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-android-v3-${{ steps.sha.outputs.sha }}
 
       - name: Build Android arm64
         working-directory: pdfium-build
@@ -313,6 +313,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Delete the existing release if it exists so workflow re-runs
+          # (e.g. after fixing a build bug) replace rather than fail.
+          gh release delete "pdfium-${{ steps.sha.outputs.sha }}" --yes 2>/dev/null || true
           gh release create "pdfium-${{ steps.sha.outputs.sha }}" \
             --title "PDFium ${{ steps.sha.outputs.sha }}" \
             --notes "PDFium commit: \`${{ steps.sha.outputs.sha }}\`
