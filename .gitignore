@@ -15,4 +15,5 @@ third_party/pdfium/
 third_party/pdfium_bin/
 dist/
 *.log
-build-logs
+build-logs/
+doc/
