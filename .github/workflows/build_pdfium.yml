@@ -137,7 +137,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-linux-arm64-v3-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-linux-arm64-v4-${{ steps.sha.outputs.sha }}
 
       - name: Build Linux arm64
         working-directory: pdfium-build
