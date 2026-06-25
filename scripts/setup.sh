@@ -177,6 +177,14 @@ PATCHEOF
     set -e
     if [ "$_gclient_rc" -ne 0 ]; then
         echo "setup: first gclient sync failed (rc=$_gclient_rc) — scanning all downloaded DEPS for infra/rbe/client ..."
+        # Print context around every match so we can see the exact DEPS structure
+        while IFS= read -r -d '' _df; do
+            if grep -q 'infra/rbe/client/' "$_df" 2>/dev/null; then
+                echo "=== infra/rbe/client context in $_df ==="
+                grep -n -B3 -A3 'infra/rbe/client' "$_df" || true
+                echo "==="
+            fi
+        done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
         _patched=0
         while IFS= read -r -d '' _df; do
             if grep -q 'infra/rbe/client/' "$_df" 2>/dev/null; then
@@ -236,6 +244,11 @@ RBEEOF
             fi
         done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
         if [ "$_patched" -gt 0 ]; then
+            # Delete the cached dep graph so gclient re-reads the patched DEPS
+            # files. Without this, gclient uses .gclient_entries from the first
+            # pass (which still references infra/rbe/client) and the retry sync
+            # fails immediately without reading the patched files at all.
+            rm -f "$BUILD_DIR/pdfium_checkout/.gclient_entries"
             echo "setup: retrying gclient sync after patching $_patched DEPS file(s) ..."
             PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
         else
