@@ -91,23 +91,74 @@ GCLIENTEOF
     rm -f "$PDFIUM_SRC/DEPS.bak"
     echo "setup: patched DEPS to skip reclient CIPD download"
 
-    # Belt-and-suspenders: if DEPS declares checkout_reclient as True in its
-    # vars dict, flip it to False. On arm64 Linux infra/rbe/client/linux-arm64
-    # does not exist in CIPD, so any unconditional or host_os-gated reference
-    # fails. checkout_reclient=False in .gclient custom_vars covers the normal
-    # case; this patch covers DEPS that also set the var internally.
-    if grep -qF "'checkout_reclient': True" "$PDFIUM_SRC/DEPS" 2>/dev/null || \
-       grep -qF '"checkout_reclient": True' "$PDFIUM_SRC/DEPS" 2>/dev/null; then
+    # DEPS may have infra/rbe/client in a root-level packages list gated only
+    # by host_os=="linux" — no checkout_reclient variable to suppress it with.
+    # infra/rbe/client/linux-arm64 does not exist in CIPD; cipd ensure fails.
+    # Use brace-matching to remove the { ... } dict directly from DEPS.
+    # ${platform} inside the string contains matching { } that cancel in depth.
+    if grep -q 'infra/rbe/client/' "$PDFIUM_SRC/DEPS" 2>/dev/null; then
         python3 - "$PDFIUM_SRC/DEPS" << 'PATCHEOF'
 import sys
+
 with open(sys.argv[1]) as f:
     text = f.read()
+
+# Set checkout_reclient=False if it exists as a variable (belt-and-suspenders)
 text = text.replace("'checkout_reclient': True,", "'checkout_reclient': False,", 1)
 text = text.replace('"checkout_reclient": True,', '"checkout_reclient": False,', 1)
+
+def remove_rbe_dict(text):
+    idx = text.find("'infra/rbe/client/")
+    if idx == -1:
+        idx = text.find('"infra/rbe/client/')
+    if idx == -1:
+        return text
+    # Walk backward to find opening { of the dict containing this string
+    j = idx - 1
+    depth = 0
+    while j >= 0:
+        c = text[j]
+        if c == '}':
+            depth += 1
+        elif c == '{':
+            if depth == 0:
+                break
+            depth -= 1
+        j -= 1
+    dict_start = j
+    # Walk forward to find matching closing }
+    j = dict_start
+    depth = 0
+    while j < len(text):
+        c = text[j]
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                break
+        j += 1
+    dict_end = j
+    # Remove from start of the line containing dict_start through dict_end,
+    # including any trailing comma
+    line_start = text.rfind('\n', 0, dict_start) + 1
+    after = dict_end + 1
+    while after < len(text) and text[after] in ' \t':
+        after += 1
+    if after < len(text) and text[after] == ',':
+        after += 1
+    return text[:line_start] + text[after:]
+
+for _ in range(5):
+    patched = remove_rbe_dict(text)
+    if patched == text:
+        break
+    text = patched
+
 with open(sys.argv[1], 'w') as f:
     f.write(text)
 PATCHEOF
-        echo "setup: patched DEPS to set checkout_reclient=False (infra/rbe/client has no linux-arm64 CIPD package)"
+        echo "setup: removed infra/rbe/client dict from DEPS (linux-arm64 package does not exist in CIPD)"
     fi
 
     echo "setup: running gclient sync — this downloads several GB and may take 20-40 minutes on first run ..."
