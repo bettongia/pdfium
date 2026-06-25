@@ -5,6 +5,12 @@ description:
 version: 0.1.0-dev.1
 repository: https://github.com/bettongia/pdfium
 issue_tracker: https://github.com/bettongia/pdfium/issues
+homepage: https://bettongia.github.io/pdfium
+
+topics:
+  - pdfium
+  - pdf
+  - ffi
 
 environment:
   sdk: ^3.12.0
