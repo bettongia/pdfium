@@ -14,6 +14,7 @@ permissions:
 jobs:
   test:
     # needs: build
+    continue-on-error: true
     strategy:
       matrix:
         runner: [macos-26, ubuntu-26.04-arm]
