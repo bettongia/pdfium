@@ -21,3 +21,4 @@ site/
 third_party
 build_logs
 **/__pycache__
+scripts/
