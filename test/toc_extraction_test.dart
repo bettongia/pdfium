@@ -37,8 +37,7 @@ import 'package:test/test.dart';
 
 import 'package:betto_pdfium/betto_pdfium.dart';
 
-/// Path to the PDFium dylib.
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+import 'native_test_helper.dart';
 
 /// Reads a fixture file from test/fixtures/.
 Uint8List _readFixture(String name) {
@@ -51,9 +50,6 @@ Uint8List _readFixture(String name) {
   }
   return file.readAsBytesSync();
 }
-
-/// Returns true when the native PDFium dylib is present and we are on macOS.
-bool _nativeAvailable() => Platform.isMacOS && File(_kDylibPath).existsSync();
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -203,13 +199,16 @@ void main() {
     });
 
     test('document with no bookmarks returns an empty list', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('no_toc.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final toc = await doc.tableOfContents;
         expect(toc, isEmpty);
@@ -221,13 +220,16 @@ void main() {
     test(
       'flat bookmark list returns correct titles and page indices',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('flat_toc.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final toc = await doc.tableOfContents;
           expect(toc, hasLength(3));
@@ -245,13 +247,16 @@ void main() {
     );
 
     test('nested bookmarks produce correct children tree structure', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('nested_toc.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final toc = await doc.tableOfContents;
         // Root level: Part I and Part II.
@@ -281,13 +286,16 @@ void main() {
     test(
       'deeply nested tree (3+ levels) preserves hierarchy without flattening',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('deep_toc.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final toc = await doc.tableOfContents;
           // Level 1: Book
@@ -320,7 +328,7 @@ void main() {
     test(
       'FPDFDest_GetDestPageIndex returning -1 maps to pageIndex == null',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -330,7 +338,10 @@ void main() {
         // Here we verify the invariant holds for any loaded document: all
         // pageIndex values in the TOC are either null or ≥ 0.
         final bytes = _readFixture('flat_toc.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final toc = await doc.tableOfContents;
           void checkEntries(List<PdfTocEntry> entries) {
@@ -350,13 +361,16 @@ void main() {
     );
 
     test('tableOfContents after close() throws StateError', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('flat_toc.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       await doc.close();
       expect(() => doc.tableOfContents, throwsStateError);
     });
@@ -364,13 +378,16 @@ void main() {
     test(
       'tableOfContents can be called multiple times on the same document',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('flat_toc.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final toc1 = await doc.tableOfContents;
           final toc2 = await doc.tableOfContents;
@@ -385,7 +402,7 @@ void main() {
     );
 
     test('fit_toc.pdf — FIT-view bookmarks have null scrollPosition', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -394,7 +411,10 @@ void main() {
       // FPDFDest_GetLocationInPage reports hasX=0 and hasY=0 for FIT views,
       // so _resolveXyzScrollPosition returns null (neither axis is explicit).
       final bytes = _readFixture('fit_toc.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final toc = await doc.tableOfContents;
         expect(toc, hasLength(2));

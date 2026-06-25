@@ -60,8 +60,12 @@ prepare:
 	dart pub global activate coverage
 	dart pub get
 	@scripts/check_pdfium_version.sh || echo "  → Run 'make fetch_pdfium' before running tests."
-
 .PHONY: prepare_dart
+
+purge: clean
+	rm -rf .dart_tool
+	rm -rf third_party
+	$(MAKE) prepare
 
 clean:
 	rm -rf site dist coverage

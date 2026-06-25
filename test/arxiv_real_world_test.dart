@@ -29,7 +29,7 @@ import 'package:betto_pdfium/betto_pdfium.dart';
 import 'package:betto_pdfium/src/document/pdfium_isolate.dart'
     show PdfiumIsolate;
 
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+import 'native_test_helper.dart';
 
 // arXiv 2605.16085v1 — "Towards Foundation Models for Relational Databases
 // with Language Models and Graph Neural Networks"
@@ -56,8 +56,6 @@ Uint8List _readArxivPdf() {
   return file.readAsBytesSync();
 }
 
-bool _nativeAvailable() => Platform.isMacOS && File(_kDylibPath).existsSync();
-
 void main() {
   group('arXiv 2605.16085v1 — real-world PDF', () {
     tearDownAll(() {
@@ -73,21 +71,21 @@ void main() {
       late PdfMetadata meta;
 
       setUpAll(() async {
-        if (!_nativeAvailable()) return;
+        if (!nativeAvailable()) return;
         doc = await PdfDocument.fromBytes(
           _readArxivPdf(),
-          dylibPath: _kDylibPath,
+          dylibPath: nativeDylibPath(),
         );
         meta = await doc.getMetadata();
       });
 
       tearDownAll(() async {
-        if (!_nativeAvailable()) return;
+        if (!nativeAvailable()) return;
         await doc.close();
       });
 
       test('title matches reference', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -95,7 +93,7 @@ void main() {
       });
 
       test('author matches reference (semicolon-separated)', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -103,7 +101,7 @@ void main() {
       });
 
       test('subject matches CEURART layout marker', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -111,7 +109,7 @@ void main() {
       });
 
       test('keywords is null (not set in this paper)', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -119,7 +117,7 @@ void main() {
       });
 
       test('creator matches arXiv GenPDF tool', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -127,7 +125,7 @@ void main() {
       });
 
       test('producer matches pikepdf version', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -135,7 +133,7 @@ void main() {
       });
 
       test('creationDate raw string matches PDF date literal', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -144,7 +142,7 @@ void main() {
       });
 
       test('creationDate parses to 2026-05-18 01:11:50 UTC', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -160,7 +158,7 @@ void main() {
       });
 
       test('modDate raw matches creationDate (same timestamp)', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -175,13 +173,13 @@ void main() {
 
     group('pageCount', () {
       test('returns 15 for 2605.16085v1.pdf', () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
         final doc = await PdfDocument.fromBytes(
           _readArxivPdf(),
-          dylibPath: _kDylibPath,
+          dylibPath: nativeDylibPath(),
         );
         try {
           expect(await doc.pageCount, equals(_kPageCount));
@@ -200,21 +198,21 @@ void main() {
       late List<PdfPageText> pages;
 
       setUpAll(() async {
-        if (!_nativeAvailable()) return;
+        if (!nativeAvailable()) return;
         doc = await PdfDocument.fromBytes(
           _readArxivPdf(),
-          dylibPath: _kDylibPath,
+          dylibPath: nativeDylibPath(),
         );
         pages = await doc.extractPlainText().toList();
       });
 
       tearDownAll(() async {
-        if (!_nativeAvailable()) return;
+        if (!nativeAvailable()) return;
         await doc.close();
       });
 
       test('yields exactly 15 pages', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -227,7 +225,7 @@ void main() {
       test(
         'all pages have hasTextLayer=true with default density threshold',
         () {
-          if (!_nativeAvailable()) {
+          if (!nativeAvailable()) {
             markTestSkipped('PDFium dylib not found.');
             return;
           }
@@ -244,7 +242,7 @@ void main() {
       // Only pages 0 and 6 contain glyphs PDFium cannot map to Unicode
       // (e.g. the envelope icon on page 0, ornamental characters on page 6).
       test('pages 0 and 6 report Unicode errors; all others are clean', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -260,7 +258,7 @@ void main() {
       });
 
       test('page indices are sequential 0–14', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -271,7 +269,7 @@ void main() {
 
       // Page 0 — title page and abstract
       test('page 0 contains paper title fragment', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -280,7 +278,7 @@ void main() {
       });
 
       test('page 0 contains first author name', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -288,7 +286,7 @@ void main() {
       });
 
       test('page 0 abstract mentions GraphSAGE and BART', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -298,7 +296,7 @@ void main() {
       });
 
       test('page 0 abstract ROC-AUC result is present', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -308,7 +306,7 @@ void main() {
 
       // Page 3 — Methodology section
       test('page 3 contains Methodology section header', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -317,7 +315,7 @@ void main() {
 
       // Page 7 — Results table
       test('page 7 contains results table with LightGBM baseline', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -328,7 +326,7 @@ void main() {
 
       // Page 11 — Conclusion
       test('page 11 contains Conclusion section header', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -337,7 +335,7 @@ void main() {
 
       // Page 12 — References section (first page of references)
       test('page 12 contains References header', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -346,7 +344,7 @@ void main() {
 
       // Page 14 — Last page (bibliography continued)
       test('page 14 contains bibliographic content', () {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
@@ -363,13 +361,13 @@ void main() {
       test(
         'page 0 via pageIndex parameter matches full-extract page 0',
         () async {
-          if (!_nativeAvailable()) {
+          if (!nativeAvailable()) {
             markTestSkipped('PDFium dylib not found.');
             return;
           }
           final doc = await PdfDocument.fromBytes(
             _readArxivPdf(),
-            dylibPath: _kDylibPath,
+            dylibPath: nativeDylibPath(),
           );
           try {
             final single = await doc.extractPlainText(pageIndex: 0).toList();
@@ -390,13 +388,13 @@ void main() {
       // All pages have a text layer (charCount > 0) →
       // scannedRatio = 0/15 = 0 < 0.5 → true.
       test('returns true with default config', () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found.');
           return;
         }
         final doc = await PdfDocument.fromBytes(
           _readArxivPdf(),
-          dylibPath: _kDylibPath,
+          dylibPath: nativeDylibPath(),
         );
         try {
           expect(await doc.isPlainTextExtractable(), isTrue);

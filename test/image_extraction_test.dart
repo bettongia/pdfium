@@ -32,8 +32,7 @@ import 'package:betto_pdfium/betto_pdfium.dart';
 import 'package:betto_pdfium/src/document/pdfium_isolate.dart'
     show PdfiumIsolate;
 
-/// Path to the PDFium dylib.
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+import 'native_test_helper.dart';
 
 /// Reads a fixture file from test/fixtures/.
 Uint8List _readFixture(String name) {
@@ -46,9 +45,6 @@ Uint8List _readFixture(String name) {
   }
   return file.readAsBytesSync();
 }
-
-/// Returns true when the native PDFium dylib is present and we are on macOS.
-bool _nativeAvailable() => Platform.isMacOS && File(_kDylibPath).existsSync();
 
 void main() {
   // -------------------------------------------------------------------------
@@ -292,13 +288,13 @@ void main() {
     late PdfDocument doc;
 
     setUp(() async {
-      if (!_nativeAvailable()) return;
+      if (!nativeAvailable()) return;
       // Reset isolate state between test groups to avoid cross-test pollution.
       PdfiumIsolate.resetForTesting();
     });
 
     tearDown(() async {
-      if (!_nativeAvailable()) return;
+      if (!nativeAvailable()) return;
       try {
         await doc.close();
       } catch (_) {
@@ -309,11 +305,14 @@ void main() {
 
     // Helper: open a fixture document.
     Future<PdfDocument> openFixture(String name) async {
-      return PdfDocument.fromBytes(_readFixture(name), dylibPath: _kDylibPath);
+      return PdfDocument.fromBytes(
+        _readFixture(name),
+        dylibPath: nativeDylibPath(),
+      );
     }
 
     test('page with no images returns empty list', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -325,7 +324,7 @@ void main() {
     });
 
     test('extractImages yields one PdfPageImages per page', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -338,7 +337,7 @@ void main() {
     });
 
     test('page 0 of multi_image.pdf has 2 images', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -348,7 +347,7 @@ void main() {
     });
 
     test('image metadata fields are populated correctly', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -374,7 +373,7 @@ void main() {
     test(
       'extractImages(includeBitmap: false) — bitmap fields are null',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -390,7 +389,7 @@ void main() {
     test(
       'extractImages(includeBitmap: true) — BGRA bytes have expected length',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -410,7 +409,7 @@ void main() {
     );
 
     test('bounds rect is non-zero for a visible image', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -426,7 +425,7 @@ void main() {
     test(
       'renderImage returns a PdfImageBitmap with correct dimensions',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -442,7 +441,7 @@ void main() {
     );
 
     test('renderImage dimensions match includeBitmap dimensions', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -458,7 +457,7 @@ void main() {
     });
 
     test('renderImage throws RangeError for out-of-range page index', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -467,7 +466,7 @@ void main() {
     });
 
     test('renderImage throws RangeError for negative object index', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -476,7 +475,7 @@ void main() {
     });
 
     test('renderImage returns null for out-of-range object index', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -487,7 +486,7 @@ void main() {
     });
 
     test('renderImage throws StateError after close()', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -499,7 +498,7 @@ void main() {
     test(
       'extractImages throws RangeError for out-of-range pageIndex',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -514,7 +513,7 @@ void main() {
     test(
       'close() during active extractImages stream terminates cleanly',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -532,7 +531,7 @@ void main() {
     );
 
     test('image mask objects (1bpp) appear in output', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -548,7 +547,7 @@ void main() {
     });
 
     test('filter list is populated for a JPEG or PNG encoded image', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -564,7 +563,7 @@ void main() {
     test(
       'extractImages with single pageIndex returns only that page',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -576,7 +575,7 @@ void main() {
     );
 
     test('extractImages throws StateError after close()', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -592,7 +591,7 @@ void main() {
         // FPDFImageObj_GetImageMetadata returns false for a dict-only image
         // XObject (no stream … endstream body), and the isolate continues
         // without throwing.
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }

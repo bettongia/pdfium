@@ -16,16 +16,11 @@
 //
 // Validates that:
 //   1. The generated FFI bindings compile against `dart:ffi`.
-//   2. When `third_party/pdfium_bin/macos_arm64/libpdfium.dylib` is present,
+//   2. When the platform PDFium binary is present (fetched by `make fetch_pdfium`),
 //      the library loads and the init/destroy round-trip succeeds.
 //
-// The test is skipped (not failed) when the dylib is absent. This allows the
-// test suite to pass on machines that have not yet run `make build_pdfium_macos`,
-// such as CI environments that fetch pre-built binaries via a separate pipeline.
-//
-// Build the dylib first:
-//   make setup             # bootstrap depot_tools + gclient sync (20-40 min)
-//   make build_pdfium_macos  # compile and stage libpdfium.dylib
+// The test is skipped (not failed) when the binary is absent. This allows the
+// test suite to pass on machines that have not yet run `make fetch_pdfium`.
 
 import 'dart:ffi';
 import 'dart:io';
@@ -34,41 +29,22 @@ import 'package:betto_pdfium/src/generated/pdfium_bindings.dart'
     show PdfiumBindings;
 import 'package:test/test.dart';
 
-/// Path to the macOS arm64 dylib staged by `make build_pdfium_macos`.
-///
-/// This path is relative to the package root where `dart test` is invoked.
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+import 'native_test_helper.dart';
 
 void main() {
   group('PDFium FFI smoke test', () {
     test('dylib loads and init/destroy round-trip succeeds', () {
-      // Skip gracefully if the binary has not yet been built. This is expected
-      // in fresh checkouts before `make build_pdfium_macos` has been run.
-      final dylibFile = File(_kDylibPath);
-      if (!dylibFile.existsSync()) {
-        markTestSkipped(
-          'Skipping: $_kDylibPath not found. '
-          'Run `make setup && make build_pdfium_macos` to build the library.',
-        );
-        return;
-      }
-
-      // Skip on non-macOS platforms. This plan covers arm64 macOS only;
-      // other platforms are handled in plan_pdfium_build_pipeline.md.
-      if (!Platform.isMacOS) {
-        markTestSkipped(
-          'Skipping: smoke test only runs on macOS. '
-          'Other platforms are handled by plan_pdfium_build_pipeline.md.',
-        );
+      // Skip gracefully if the binary has not yet been fetched.
+      final path = nativeDylibPath();
+      if (!File(path).existsSync()) {
+        markTestSkipped('Skipping: $path not found. Run `make fetch_pdfium`.');
         return;
       }
 
       // Load the shared library via dart:ffi. A failure here indicates a
-      // problem with the dylib itself (wrong architecture, missing symbols,
-      // or a Gatekeeper quarantine xattr on a downloaded binary).
-      // Locally-built dylibs are not quarantined and should load without
-      // ad-hoc signing.
-      final dylib = DynamicLibrary.open(_kDylibPath);
+      // problem with the binary itself (wrong architecture, missing symbols,
+      // or a Gatekeeper quarantine xattr on a downloaded macOS binary).
+      final dylib = DynamicLibrary.open(path);
       final bindings = PdfiumBindings(dylib);
 
       // FPDF_InitLibraryWithConfig is the production-recommended form of

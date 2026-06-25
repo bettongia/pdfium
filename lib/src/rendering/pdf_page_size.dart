@@ -24,7 +24,7 @@
 /// final size = await doc.getPageSize(0);
 /// // Convert to pixels at 150 DPI:
 /// final pixelSize = size.sizeForDpi(150);
-/// final image = await doc.renderPage(
+/// final image = await doc.renderPageToBytes(
 ///   0,
 ///   pixelSize.width.round(),
 ///   pixelSize.height.round(),
@@ -35,7 +35,7 @@ class PdfPageSize {
   ///
   /// Both values must be positive. A value of zero or negative indicates a
   /// malformed page in the PDF; callers should guard against this before
-  /// passing dimensions to [renderPage].
+  /// passing dimensions to [PdfDocument.renderPageToBytes].
   const PdfPageSize({required this.widthPt, required this.heightPt});
 
   /// The page width in PDF user units (points, 1/72 inch).
@@ -55,7 +55,7 @@ class PdfPageSize {
   ///
   /// Multiply [widthPt] and [heightPt] (both in points, 1/72 inch) by
   /// [dpi] / 72 to obtain pixel dimensions suitable for passing to
-  /// [PdfDocument.renderPage].
+  /// [PdfDocument.renderPageToBytes].
   ///
   /// Example: an A4 page (595 × 842 pt) at 150 DPI yields
   /// approximately 1239 × 1754 pixels.

@@ -37,7 +37,7 @@ export '../rendering/pdf_page_size.dart';
 /// A loaded PDF document.
 ///
 /// [PdfDocument] is the top-level Dart abstraction for a PDF file. It mirrors
-/// the PDFium model: [PdfiumBindings.FPDF_LoadMemDocument64] returns a single document handle
+/// the PDFium model: `FPDF_LoadMemDocument64` returns a single document handle
 /// used for all subsequent operations. [PdfDocument] is the Dart owner of that
 /// handle and exposes document-level capabilities as async methods.
 ///
@@ -221,12 +221,12 @@ class PdfDocument {
   Stream<PdfPageAnnotations> extractAnnotations({int? pageIndex}) =>
       _impl.extractAnnotations(pageIndex: pageIndex);
 
-  /// Returns `true` when fewer than [config.scannedPageRatio] of pages lack a
+  /// Returns `true` when fewer than [PdfTextExtractorConfig.scannedPageRatio] of pages lack a
   /// text layer (i.e. the document is suitable for plain-text extraction).
   ///
   /// Internally runs [extractPlainText] to completion and counts pages where
   /// [PdfPageText.hasTextLayer] is `false`. Returns `false` when the proportion
-  /// of such pages meets or exceeds [config.scannedPageRatio].
+  /// of such pages meets or exceeds [PdfTextExtractorConfig.scannedPageRatio].
   ///
   /// Use per-page [PdfPageText.hasTextLayer] for finer-grained control.
   ///
@@ -257,10 +257,10 @@ class PdfDocument {
   /// Renders a page to a raw BGRA pixel buffer.
   ///
   /// The page at [pageIndex] is rendered at [pixelWidth] × [pixelHeight]
-  /// pixels. The returned record exposes [pixels] (BGRA bytes),
+  /// pixels. The returned record exposes `pixels` (BGRA bytes),
   /// [pixelWidth], and [pixelHeight].
   ///
-  /// For Flutter apps, decode the returned BGRA bytes into a `dart:ui` [Image]
+  /// For Flutter apps, decode the returned BGRA bytes into a `dart:ui Image`
   /// via `decodeImageFromPixels`.
   ///
   /// [renderAnnotations] maps to the PDFium `FPDF_ANNOT` flag (default true).

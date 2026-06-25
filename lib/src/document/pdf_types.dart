@@ -560,7 +560,7 @@ sealed class PdfAnnotation {
 
   /// The last-modified date (`/M` dictionary entry), or `null` if absent.
   ///
-  /// Parsed via [pdf_date_parser.dart], consistent with [PdfMetadata.modDate].
+  /// Parsed via `pdf_date_parser.dart`, consistent with [PdfMetadata.modDate].
   final PdfDate? modifiedDate;
 
   /// Raw `FPDF_ANNOT_FLAG_*` bitmask.
@@ -1485,12 +1485,12 @@ final class PdfImage {
 
   /// The rendered pixel width, or `null` if the bitmap was not requested.
   ///
-  /// May differ from [metadata.width] after transforms are applied.
+  /// May differ from [PdfImageMetadata.width] after transforms are applied.
   final int? bitmapWidth;
 
   /// The rendered pixel height, or `null` if the bitmap was not requested.
   ///
-  /// May differ from [metadata.height] after transforms are applied.
+  /// May differ from [PdfImageMetadata.height] after transforms are applied.
   final int? bitmapHeight;
 
   @override
@@ -1706,7 +1706,7 @@ final class PdfSearchMatch {
 ///
 /// Embedded thumbnails are smaller than rendered ones (typically 64–256 px)
 /// and are returned at their native size. Rendered thumbnails are produced on
-/// demand by the rendering engine at the caller-controlled [maxDimension].
+/// demand by the rendering engine at the caller-controlled `maxDimension`.
 enum PdfThumbnailSource {
   /// Decoded from an embedded `/Thumb` stream in the PDF page dictionary.
   ///
@@ -1717,11 +1717,11 @@ enum PdfThumbnailSource {
   embedded,
 
   /// Rendered from the page content at [PdfDocument.getThumbnail]'s
-  /// [maxDimension] because no embedded thumbnail was present.
+  /// `maxDimension` because no embedded thumbnail was present.
   ///
   /// The rendered thumbnail is produced by the same rendering engine as
   /// [PdfDocument.renderPageToBytes]. On high-DPI displays, multiply
-  /// [maxDimension] by the device pixel ratio before calling to obtain a
+  /// `maxDimension` by the device pixel ratio before calling to obtain a
   /// retina-sharp result.
   rendered,
 }
@@ -1743,9 +1743,9 @@ enum PdfThumbnailSource {
 ///
 /// Embedded thumbnails ([PdfThumbnailSource.embedded]) are stored directly in
 /// the PDF and returned at whatever dimensions the authoring tool chose.
-/// Rendered thumbnails ([PdfThumbnailSource.rendered]) respect [maxDimension].
+/// Rendered thumbnails ([PdfThumbnailSource.rendered]) respect `maxDimension`.
 ///
-/// Example — converting a [PdfThumbnail] to a Flutter [Image]:
+/// Example — converting a [PdfThumbnail] to a Flutter `dart:ui Image`:
 ///
 /// ```dart
 /// final thumb = await doc.getThumbnail(0);

@@ -24,11 +24,7 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-/// Path to the PDFium dylib.
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
-
-/// Returns true when the native PDFium dylib is present and we are on macOS.
-bool _nativeAvailable() => Platform.isMacOS && File(_kDylibPath).existsSync();
+import 'native_test_helper.dart';
 
 /// Runs `dart run bin/pdfinfo.dart [args...] <fixturePath>` and returns the
 /// [ProcessResult].
@@ -50,7 +46,7 @@ void main() {
     test(
       '--toc on a document with no bookmarks prints "(no bookmarks)"',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -66,7 +62,7 @@ void main() {
     test(
       '--toc on a document with flat bookmarks prints each entry with page number',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -87,7 +83,7 @@ void main() {
     test(
       '--toc on nested bookmarks prints children with deeper indentation',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -126,7 +122,7 @@ void main() {
     );
 
     test('--toc --json includes "toc" key with entries array', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -147,7 +143,7 @@ void main() {
     });
 
     test('--json without --toc omits the "toc" key', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -161,7 +157,7 @@ void main() {
     test(
       '--toc --json on a document with no bookmarks gives empty toc array',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -179,7 +175,7 @@ void main() {
     );
 
     test('--toc --json on nested bookmarks includes children arrays', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -205,7 +201,7 @@ void main() {
     });
 
     test('combining --toc with --text and --annot succeeds', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }

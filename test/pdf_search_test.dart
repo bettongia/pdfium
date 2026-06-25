@@ -40,8 +40,7 @@ import 'package:betto_pdfium/src/document/pdfium_isolate.dart'
     show PdfiumIsolate;
 import 'package:test/test.dart';
 
-/// Path to the PDFium dylib.
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+import 'native_test_helper.dart';
 
 /// Reads a fixture file from test/fixtures/.
 Uint8List _readFixture(String name) {
@@ -54,9 +53,6 @@ Uint8List _readFixture(String name) {
   }
   return file.readAsBytesSync();
 }
-
-/// Returns true when the native PDFium dylib is present and we are on macOS.
-bool _nativeAvailable() => Platform.isMacOS && File(_kDylibPath).existsSync();
 
 /// Runs `dart run bin/pdfinfo.dart [args...] <fixturePath>` and returns the
 /// [ProcessResult].
@@ -260,13 +256,16 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('empty query returns empty stream immediately', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_single.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('').toList();
         expect(results, isEmpty);
@@ -278,13 +277,16 @@ void main() {
     test(
       '"fox" case-insensitive finds 3 matches on the single-page fixture',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('search_single.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final results = await doc.search('fox').toList();
           // The fixture has "The quick brown fox..." repeated 3 times.
@@ -303,13 +305,16 @@ void main() {
     test(
       '"FOX" with matchCase flag finds 0 matches (no uppercase in fixture)',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('search_single.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final results = await doc
               .search('FOX', flags: {PdfSearchFlag.matchCase})
@@ -322,13 +327,16 @@ void main() {
     );
 
     test('"fox" case-insensitive finds matches regardless of case', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_single.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         // Without matchCase, "FOX" should still match "fox" in the fixture.
         final results = await doc.search('FOX').toList();
@@ -339,13 +347,16 @@ void main() {
     });
 
     test('"xyzzy" unique term finds exactly 1 match', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_single.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('xyzzy').toList();
         expect(results, hasLength(1));
@@ -360,13 +371,16 @@ void main() {
     test(
       '"zzz_not_in_doc" query that does not appear returns empty stream',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('search_single.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           final results = await doc
               .search('zzz_not_in_document_at_all')
@@ -379,13 +393,16 @@ void main() {
     );
 
     test('each match has non-empty rects with positive dimensions', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_single.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('fox').toList();
         expect(results, isNotEmpty);
@@ -406,13 +423,16 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('"gamma" in multipage fixture appears on pages 0, 1, and 2', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('gamma').toList();
         expect(results, hasLength(3));
@@ -425,13 +445,16 @@ void main() {
     });
 
     test('"beta" in multipage fixture appears on pages 0 and 1 only', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('beta').toList();
         expect(results, hasLength(2));
@@ -443,13 +466,16 @@ void main() {
     });
 
     test('"alpha" in multipage fixture appears only on page 0', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('alpha').toList();
         expect(results, hasLength(1));
@@ -460,13 +486,16 @@ void main() {
     });
 
     test('"zeta" in multipage fixture appears only on page 2', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('zeta').toList();
         expect(results, hasLength(1));
@@ -477,13 +506,16 @@ void main() {
     });
 
     test('results are yielded in ascending page order', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('delta').toList();
         expect(results, hasLength(3));
@@ -504,7 +536,7 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('pageIndex restricts search to a single page', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -512,7 +544,10 @@ void main() {
       // "delta" appears on all three pages of the multipage fixture.
       // Restricting to page 1 should yield only 1 match.
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('delta', pageIndex: 1).toList();
         expect(results, hasLength(1));
@@ -525,13 +560,16 @@ void main() {
     test(
       'pageIndex restricts to page 0: results contain only page 0 matches',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('search_multipage.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           // "alpha" only exists on page 0; restrict to page 0 → 1 result.
           final results = await doc.search('alpha', pageIndex: 0).toList();
@@ -550,13 +588,16 @@ void main() {
     test(
       'out-of-range pageIndex throws RangeError before any PDFium calls',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final bytes = _readFixture('search_multipage.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         try {
           // Fixture has 3 pages (indices 0–2). Index 3 is out of range.
           // search() returns a lazy stream; RangeError is thrown when listened.
@@ -580,7 +621,7 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('matchWholeWord flag excludes substring matches', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -590,7 +631,10 @@ void main() {
       // word). With whole word it still matches all 6 because they are all
       // standalone words.
       final bytes = _readFixture('search_single.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         // "fox" is a complete word — should still match 3 times.
         final foxMatches = await doc
@@ -613,13 +657,16 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('search on scanned PDF returns empty stream', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('scanned.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final results = await doc.search('the').toList();
         expect(results, isEmpty);
@@ -635,7 +682,7 @@ void main() {
     test(
       'close() before stream listen causes stream to emit StateError',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -643,7 +690,10 @@ void main() {
         // Close the document before subscribing; the stream should emit a
         // StateError (the _closed guard fires on first listen).
         final bytes = _readFixture('search_multipage.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
         await doc.close();
 
         await expectLater(doc.search('delta'), emitsError(isA<StateError>()));
@@ -653,14 +703,17 @@ void main() {
     test(
       'close() called while stream is processing terminates stream cleanly',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         // Use a multi-page document so there is more work to interrupt.
         final bytes = _readFixture('search_multipage.pdf');
-        final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+        final doc = await PdfDocument.fromBytes(
+          bytes,
+          dylibPath: nativeDylibPath(),
+        );
 
         final received = <PdfSearchMatch>[];
         // Start the stream and collect results; cancel after the first yield.
@@ -692,13 +745,16 @@ void main() {
     );
 
     test('search() after close() emits a StateError on listen', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_single.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       await doc.close();
       // search() returns a lazy Stream; StateError is emitted when listened.
       await expectLater(doc.search('fox'), emitsError(isA<StateError>()));
@@ -709,13 +765,16 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('cancelling stream subscription stops processing', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
 
       final bytes = _readFixture('search_multipage.pdf');
-      final doc = await PdfDocument.fromBytes(bytes, dylibPath: _kDylibPath);
+      final doc = await PdfDocument.fromBytes(
+        bytes,
+        dylibPath: nativeDylibPath(),
+      );
       try {
         final received = <PdfSearchMatch>[];
         // "delta" appears on every page; cancel after the first result.
@@ -741,7 +800,7 @@ void main() {
 
   group('pdfinfo CLI --search flag', () {
     test('--search with a matching query prints results to stdout', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -757,7 +816,7 @@ void main() {
     });
 
     test('--search with no matches prints "(no matches)" or similar', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -772,7 +831,7 @@ void main() {
     });
 
     test('--search --json includes "search" key with match array', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -795,7 +854,7 @@ void main() {
     });
 
     test('--json without --search omits the "search" key', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }
@@ -809,7 +868,7 @@ void main() {
     test(
       '--search --json on multipage fixture includes matches from all pages',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
@@ -832,7 +891,7 @@ void main() {
     );
 
     test('--search can be combined with --text flag', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');
         return;
       }

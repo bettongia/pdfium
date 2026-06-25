@@ -17,7 +17,7 @@
 ///
 /// [PdfiumException] is thrown when a PDFium FFI call returns a failure that
 /// cannot be attributed to a known, recoverable condition (such as an invalid
-/// document or a missing password). For example, if [FPDFBitmap_Create]
+/// document or a missing password). For example, if `FPDFBitmap_Create`
 /// returns `null` unexpectedly — indicating a native allocation failure — a
 /// [PdfiumException] is thrown with a descriptive [message].
 ///

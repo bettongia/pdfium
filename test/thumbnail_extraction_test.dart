@@ -33,14 +33,10 @@ import 'package:test/test.dart';
 import 'package:betto_pdfium/betto_pdfium.dart';
 import 'package:betto_pdfium/src/document/pdfium_isolate.dart';
 
-/// Path to the PDFium dylib.
-const String _kDylibPath = 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+import 'native_test_helper.dart';
 
 /// Path to the thumbnail fixture PDF (committed binary).
 const String _kFixturePath = 'test/data/thumbnail_fixture.pdf';
-
-/// Returns true when the native PDFium dylib is present and we are on macOS.
-bool _nativeAvailable() => Platform.isMacOS && File(_kDylibPath).existsSync();
 
 /// Reads the thumbnail fixture PDF bytes.
 Uint8List _readThumbnailFixture() {
@@ -186,17 +182,17 @@ void main() {
     late PdfDocument doc;
 
     setUp(() async {
-      if (!_nativeAvailable()) return;
+      if (!nativeAvailable()) return;
       // Reset isolate state between tests to avoid cross-test pollution.
       PdfiumIsolate.resetForTesting();
       doc = await PdfDocument.fromBytes(
         _readThumbnailFixture(),
-        dylibPath: _kDylibPath,
+        dylibPath: nativeDylibPath(),
       );
     });
 
     tearDown(() async {
-      if (!_nativeAvailable()) return;
+      if (!nativeAvailable()) return;
       try {
         await doc.close();
       } catch (_) {
@@ -210,7 +206,7 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('page 0 returns PdfThumbnail with source: embedded', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -220,7 +216,7 @@ void main() {
     });
 
     test('embedded thumbnail bgra length equals width * height * 4', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -230,7 +226,7 @@ void main() {
     });
 
     test('embedded thumbnail has positive width and height', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -243,7 +239,7 @@ void main() {
     test('embedded thumbnail BGRA bytes are non-trivially non-zero', () async {
       // At least one pixel should have a non-zero blue, green, or red
       // channel — an all-zero bitmap would indicate a read failure.
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -265,7 +261,7 @@ void main() {
     test(
       'page 1 with no thumbnail, generateIfAbsent: true returns rendered',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -276,7 +272,7 @@ void main() {
     );
 
     test('rendered fallback bgra length equals width * height * 4', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -288,7 +284,7 @@ void main() {
     test(
       'rendered fallback dimensions are at most maxDimension on longest edge',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -313,7 +309,7 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('page 1 with generateIfAbsent: false returns null', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -326,7 +322,7 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('custom maxDimension is respected by fallback render path', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -341,7 +337,7 @@ void main() {
     test(
       'larger maxDimension produces larger rendered output than smaller',
       () async {
-        if (!_nativeAvailable()) {
+        if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not present');
           return;
         }
@@ -363,7 +359,7 @@ void main() {
     // -------------------------------------------------------------------------
 
     test('negative page index throws RangeError', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -371,7 +367,7 @@ void main() {
     });
 
     test('page index >= pageCount throws RangeError', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -380,7 +376,7 @@ void main() {
     });
 
     test('maxDimension of 0 throws ArgumentError', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -391,7 +387,7 @@ void main() {
     });
 
     test('maxDimension of -1 throws ArgumentError', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
@@ -402,7 +398,7 @@ void main() {
     });
 
     test('getThumbnail on a closed document throws StateError', () async {
-      if (!_nativeAvailable()) {
+      if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not present');
         return;
       }
