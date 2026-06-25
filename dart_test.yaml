@@ -1,0 +1,6 @@
+# PDFium uses a process-wide singleton initialised by FPDF_InitLibraryWithConfig.
+# Calling it more than once per process is undefined behaviour. dart test's default
+# concurrency spawns multiple Dart isolates inside the same OS process, each of
+# which would create its own PdfiumIsolate and call init — causing crashes.
+# Restrict to a single test isolate so PDFium is initialised exactly once.
+concurrency: 1
