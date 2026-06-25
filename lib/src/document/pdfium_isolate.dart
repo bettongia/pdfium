@@ -2811,8 +2811,9 @@ class PdfiumIsolate {
 
 String _defaultDylibPath() {
   if (Platform.isLinux) {
-    final arch =
-        ffi.Abi.current() == ffi.Abi.linuxArm64 ? 'linux_arm64' : 'linux_x64';
+    final arch = ffi.Abi.current() == ffi.Abi.linuxArm64
+        ? 'linux_arm64'
+        : 'linux_x64';
     return 'third_party/pdfium_bin/$arch/libpdfium.so';
   }
   return 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';

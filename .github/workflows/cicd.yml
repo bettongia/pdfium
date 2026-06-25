@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    # needs: build
+    needs: build
     continue-on-error: true
     strategy:
       matrix:
