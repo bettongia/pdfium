@@ -27,17 +27,23 @@ mkdir -p $PDFIUM_OUT
 
 echo "Configure the build args: $PDFIUM_OUT/args.gn"
 envsubst < args.gn.tmpl > $PDFIUM_OUT/args.gn
+# With is_component_build=true (the template default), component("pdfium") builds
+# as libpdfium.cr.so with runtime deps on 8+ other .cr.so component libs —
+# not a distributable artifact. With is_component_build=false all component()
+# targets become source_sets; setup.sh adds a pdfium_standalone shared_library
+# that links them all into a single self-contained libpdfium.so.
+echo "is_component_build = false" >> $PDFIUM_OUT/args.gn
 
 echo "Running: $GN gen $PDFIUM_OUT"
 cd $PDFIUM_SRC && $GN gen $PDFIUM_OUT
 
 echo "Running ninja (this may take 10-30 minutes on first build) ..."
-cd $PDFIUM_SRC && ninja -C $PDFIUM_OUT pdfium -j$(nproc)
+cd $PDFIUM_SRC && ninja -C $PDFIUM_OUT pdfium_standalone -j$(nproc)
 
 echo "staging shared library to $PDFIUM_DIST/$PDFIUM_PLATFORM/ ..."
 mkdir -p $PDFIUM_DIST/$PDFIUM_PLATFORM
 
-cp $PDFIUM_OUT/*.so $PDFIUM_DIST/$PDFIUM_PLATFORM/
+cp $PDFIUM_OUT/libpdfium.so $PDFIUM_DIST/$PDFIUM_PLATFORM/
 
 echo "writing VERSION file ..."
 printf "%s" \

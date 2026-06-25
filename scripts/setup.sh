@@ -184,4 +184,25 @@ PATCHEOF
     echo "setup: patched partition_alloc to use stack_trace_linux.cc for Android (no _Unwind_Backtrace)"
 fi
 
+# Patch: add pdfium_standalone target to BUILD.gn for Android distribution.
+# With is_component_build=false, component("pdfium") becomes a source_set with
+# no .so output. pdfium_standalone wraps it in a shared_library so all PDFium
+# code (and its transitive source_set deps) is linked into a single libpdfium.so.
+ROOT_BUILD="$PDFIUM_SRC/BUILD.gn"
+if [ -f "$ROOT_BUILD" ] && ! grep -q 'pdfium_standalone' "$ROOT_BUILD"; then
+    cat >> "$ROOT_BUILD" << 'GNCEOF'
+
+# Single self-contained libpdfium.so for Android distribution.
+# With is_component_build=false all component() targets become source_sets;
+# this shared_library links them all in to produce one distributable .so.
+if (is_android && !is_component_build) {
+  shared_library("pdfium_standalone") {
+    output_name = "pdfium"
+    deps = [ ":pdfium" ]
+  }
+}
+GNCEOF
+    echo "setup: patched BUILD.gn to add pdfium_standalone Android distribution target"
+fi
+
 echo "setup: gclient sync complete. PDFium source is at $PDFIUM_SRC"
