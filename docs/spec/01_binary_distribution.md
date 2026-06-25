@@ -127,6 +127,26 @@ Platforms not covered by the smoke test:
 - **Android** — requires an Android runtime (device or emulator), not available
   on the Linux runner. The ELF binary is verified to have the correct
   architecture via `file(1)` instead.
-- **Linux arm64** — built natively on `ubuntu-26.04-arm`; full dlopen smoke
-  test runs.
 - **WASM** — placeholder build pending Emscripten setup.
+
+### Why Linux arm64 is cross-compiled
+
+The Linux arm64 binary is **built on `ubuntu-26.04` (x86\_64)** rather than on
+a native arm64 runner. The reason is a missing CIPD package: PDFium's `DEPS`
+file unconditionally fetches `infra/rbe/client/${platform}` (the Google
+Remote Build Execution client), and `infra/rbe/client/linux-arm64` does not
+exist in CIPD. On the x86\_64 runner, `infra/rbe/client/linux-amd64` exists and
+`gclient sync` succeeds.
+
+The standard suppression mechanisms were tried and found ineffective with the
+version of gclient shipped on the arm64 runner:
+
+- `custom_deps: {"buildtools/reclient": None}` in `.gclient` — ignored for
+  CIPD deps.
+- Adding `'condition': 'False'` to the `buildtools/reclient` dep entry in
+  `pdfium/DEPS` — ignored for CIPD deps.
+
+The cross-compiled arm64 binary is uploaded as a CI artifact and then
+**smoke-tested by a separate `smoke-test-linux-arm64` job on `ubuntu-26.04-arm`**,
+so the full `dlopen` / `dlsym` / init / destroy round-trip is still verified on
+real arm64 hardware before the release is published.
