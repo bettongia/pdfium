@@ -11,7 +11,7 @@ default: prepare license_check format analyze coverage doc_site
 pre_commit: check_pdfium_version format_check analyze license_check test
 .PHONY: pre_commit
 
-cicd: fetch_pdfium ffi_bindings format_check analyze license_check doc_site
+cicd: fetch_pdfium ffi_bindings format_check analyze license_check test doc_site
 .PHONY: cicd
 
 # END: Primary tasks

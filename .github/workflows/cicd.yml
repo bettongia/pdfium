@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    needs: build
+    # needs: build
     strategy:
       matrix:
         runner: [macos-26, ubuntu-26.04-arm]
