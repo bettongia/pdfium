@@ -24,8 +24,10 @@ DEPOT_TOOLS_UPDATE=0
 # (DEPS condition: "(host_os=='linux' or checkout_android) and non_git_source").
 # On macOS that downloads a Linux ELF binary to the same path as the Mac arm64
 # clang, overwriting it — resulting in "cannot execute binary file" at compile
-# time. Only set True on Linux (where the android cross-toolchain is needed).
-if [ "$(uname -s)" = "Darwin" ]; then
+# time. On Linux arm64, checkout_android would download x64 Android toolchain
+# binaries that cannot execute on an arm64 host. Only set True on Linux x86_64
+# (where the android cross-toolchain is needed for the Android build jobs).
+if [ "$(uname -s)" = "Darwin" ] || [ "$(uname -m)" = "aarch64" ]; then
     _checkout_android="False"
 else
     _checkout_android="True"
