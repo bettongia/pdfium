@@ -9,7 +9,7 @@ on:
 jobs:
   # ── Apple (macOS arm64 + iOS arm64) ─────────────────────────────────────────
   build-apple:
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
 
@@ -64,7 +64,7 @@ jobs:
 
   # ── Linux x86_64 ────────────────────────────────────────────────────────────
   build-linux-x64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -115,13 +115,9 @@ jobs:
           name: pdfium-headers
           path: pdfium-build/dist/pdfium-headers.zip
 
-  # ── Linux arm64 (cross-compiled from x86_64) ────────────────────────────────
-  # Built using the bundled Chromium clang cross-compiler with target_cpu=arm64
-  # and an arm64 debian sysroot (install-sysroot.py). The output .so is an
-  # arm64 ELF and cannot be dlopen'd on the x86_64 runner, so the smoke test
-  # verifies the ELF architecture instead of executing the binary.
+  # ── Linux arm64 (native) ─────────────────────────────────────────────────────
   build-linux-arm64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     steps:
       - uses: actions/checkout@v7
 
@@ -147,12 +143,11 @@ jobs:
           PDFIUM_REVISION: ${{ steps.sha.outputs.sha }}
         run: make build_pdfium_linux_arm64
 
-      - name: Verify Linux arm64 artifact architecture
+      - name: Smoke test Linux arm64
         working-directory: pdfium-build
         run: |
-          file dist/linux-arm64/libpdfium.so
-          file dist/linux-arm64/libpdfium.so | grep -q "ARM aarch64" || \
-            (echo "ERROR: expected ARM aarch64 ELF" && exit 1)
+          cc -o smoke_test scripts/smoke_test.c -ldl
+          ./smoke_test dist/linux-arm64/libpdfium.so
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -164,7 +159,7 @@ jobs:
   # Smoke test skipped: Android .so files require an Android runtime
   # (device or emulator) and cannot be loaded natively on the Linux runner.
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -213,7 +208,7 @@ jobs:
   # that will fail until build_wasm.sh is extended to install Emscripten
   # and the correct Emscripten version is determined from PDFium's DEPS.
   build-wasm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -254,7 +249,7 @@ jobs:
         build-linux-arm64,
         build-android,
       ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:
