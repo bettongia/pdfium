@@ -117,9 +117,14 @@ jobs:
           name: pdfium-headers
           path: pdfium-build/dist/pdfium-headers.zip
 
-  # ── Linux arm64 (native) ─────────────────────────────────────────────────────
+  # ── Linux arm64 (cross-compile on x86_64) ───────────────────────────────────
+  # gclient's cipd step requires infra/rbe/client/${platform}, which does not
+  # exist for linux-arm64. Running the build on the x86_64 runner avoids that:
+  # infra/rbe/client/linux-amd64 exists and gclient sync succeeds. The resulting
+  # arm64 binary is uploaded as an artifact and smoke-tested by the next job on
+  # a native arm64 runner.
   build-linux-arm64:
-    runs-on: ubuntu-26.04-arm
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -137,7 +142,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: pdfium-build/build
-          key: pdfium-build-linux-arm64-v4-${{ steps.sha.outputs.sha }}
+          key: pdfium-build-linux-arm64-v5-${{ steps.sha.outputs.sha }}
 
       - name: Build Linux arm64
         working-directory: pdfium-build
@@ -145,17 +150,36 @@ jobs:
           PDFIUM_REVISION: ${{ steps.sha.outputs.sha }}
         run: make build_pdfium_linux_arm64
 
-      - name: Smoke test Linux arm64
-        working-directory: pdfium-build
-        run: |
-          cc -o smoke_test scripts/smoke_test.c -ldl
-          ./smoke_test dist/linux-arm64/libpdfium.so
-
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: linux-arm64
           path: pdfium-build/dist/linux-arm64/
+
+  # ── Linux arm64 smoke test (native runner) ───────────────────────────────────
+  # Download the cross-compiled arm64 binary and run a real dlopen smoke test
+  # on a native arm64 runner. This job has no build cache — it only needs the
+  # artifact and smoke_test.c.
+  smoke-test-linux-arm64:
+    needs: build-linux-arm64
+    runs-on: ubuntu-26.04-arm
+    steps:
+      - name: Checkout pdfium-build branch
+        uses: actions/checkout@v7
+        with:
+          ref: pdfium-build
+          path: pdfium-build
+
+      - name: Download linux-arm64 artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-arm64
+          path: dist/linux-arm64
+
+      - name: Smoke test Linux arm64
+        run: |
+          cc -o smoke_test pdfium-build/scripts/smoke_test.c -ldl
+          ./smoke_test dist/linux-arm64/libpdfium.so
 
   # ── Android (arm64 + x86_64) ────────────────────────────────────────────────
   # Smoke test skipped: Android .so files require an Android runtime
@@ -250,7 +274,7 @@ jobs:
       [
         build-apple,
         build-linux-x64,
-        build-linux-arm64,
+        smoke-test-linux-arm64,
         build-android,
       ]
     runs-on: ubuntu-26.04
