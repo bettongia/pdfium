@@ -47,11 +47,6 @@ if [ ! -d "$PDFIUM_SRC" ]; then
 
     # Write .gclient with managed:False so that gclient sync never resets
     # our manually-cloned pdfium working tree (or any DEPS patches on it).
-    # custom_deps: pdfium/buildtools/reclient → None suppresses the CIPD
-    # download of the RBE remote-execution client (infra/rbe/client/$platform).
-    # The key uses the solution-prefixed full path that gclient stores internally
-    # (gclient normalises dep keys as "<solution>/<relative-path>").
-    # That package does not exist for linux-arm64, and we never use RBE.
     # The unquoted heredoc allows ${_checkout_android} to be expanded.
     cat > "$BUILD_DIR/pdfium_checkout/.gclient" << GCLIENTEOF
 solutions = [
@@ -59,103 +54,27 @@ solutions = [
     "url"         : "https://pdfium.googlesource.com/pdfium.git",
     "deps_file"   : "DEPS",
     "managed"     : False,
-    "custom_deps" : {
-      "pdfium/buildtools/reclient": None,
-    },
     "custom_vars" : {
       "checkout_v8"         : False,
       "checkout_skia"       : False,
       "checkout_android"    : ${_checkout_android},
-      "checkout_reclient"   : False,
     },
   },
 ]
 GCLIENTEOF
 
     # Pre-clone pdfium at the target revision before running gclient sync.
-    # This lets us patch DEPS before gclient resolves the dep graph.
-    # The DEPS 'condition': 'False' patch is belt-and-suspenders alongside
-    # custom_deps: None above; either mechanism alone may be bypassed
-    # depending on the gclient version.
     # With managed:False, gclient sync leaves the working tree untouched.
     echo "setup: cloning pdfium at $PDFIUM_REVISION ..."
     git clone https://pdfium.googlesource.com/pdfium.git "$PDFIUM_SRC"
     git -C "$PDFIUM_SRC" checkout "$PDFIUM_REVISION"
 
-    # Patch DEPS: add condition=False to buildtools/reclient so that gclient
-    # skips the infra/rbe/client CIPD package entirely on all platforms.
-    # RBE (Remote Build Execution) is a Google-internal distributed compile
-    # service; we never use it and its linux-arm64 package does not exist.
-    # Remove the .bak file immediately — untracked files cause gclient to
-    # report "uncommitted changes" and refuse to sync.
-    sed -i.bak "s|'buildtools/reclient': {|'buildtools/reclient': {\n    'condition': 'False',|" \
-        "$PDFIUM_SRC/DEPS"
-    rm -f "$PDFIUM_SRC/DEPS.bak"
-    echo "setup: patched DEPS to skip reclient CIPD download"
-
-    # Diagnostic: confirm both patches (sed condition:'False' + custom_deps None)
-    # are in effect before we hand off to gclient. Output is visible in CI logs.
-    echo "=== pdfium/DEPS buildtools/reclient section (post-patch) ==="
-    grep -n -A5 "buildtools/reclient" "$PDFIUM_SRC/DEPS" || echo "(not found)"
-    echo "==="
-    echo "=== .gclient custom_deps (post-patch) ==="
-    grep -A2 "custom_deps" "$BUILD_DIR/pdfium_checkout/.gclient" || echo "(not found)"
-    echo "==="
-
     echo "setup: running gclient sync — this downloads several GB and may take 20-40 minutes on first run ..."
     # --force bypasses the "uncommitted changes" check for the managed:False
     # pdfium solution. For unmanaged solutions gclient does NOT reset the
     # working tree on --force; it only skips the cleanliness guard.
-    #
-    # Two-pass strategy: infra/rbe/client may appear in a transitive dep's
-    # DEPS file (e.g. build/DEPS) that doesn't exist until gclient has cloned
-    # it. We run gclient once to populate git repos, then scan every downloaded
-    # DEPS for infra/rbe/client, patch them, and retry.
     cd "$BUILD_DIR/pdfium_checkout"
-    set +e
     PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
-    _gclient_rc=$?
-    set -e
-    if [ "$_gclient_rc" -ne 0 ]; then
-        echo "setup: first gclient sync failed (rc=$_gclient_rc) — scanning all downloaded DEPS for infra/rbe/client ..."
-        # Print context around every match so we can see the exact DEPS structure
-        while IFS= read -r -d '' _df; do
-            if grep -q 'infra/rbe/client/' "$_df" 2>/dev/null; then
-                echo "=== infra/rbe/client context in $_df ==="
-                grep -n -B3 -A3 'infra/rbe/client' "$_df" || true
-                echo "==="
-            fi
-        done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
-        # Patch every DEPS file that contains 'buildtools/reclient' by adding
-        # 'condition': 'False' to that entry. This is the same sed-based
-        # approach as the pre-sync patch applied to pdfium/DEPS — it targets
-        # the dep entry key directly rather than searching for the CIPD
-        # package string (which lives in the vars dict, not the dep entry).
-        _patched=0
-        while IFS= read -r -d '' _df; do
-            if grep -q "'buildtools/reclient'" "$_df" 2>/dev/null; then
-                # Only patch if 'condition' isn't already present in the entry
-                if ! grep -A5 "'buildtools/reclient'" "$_df" | grep -q "'condition'"; then
-                    sed -i.bak "s|'buildtools/reclient': {|'buildtools/reclient': {\n    'condition': 'False',|" "$_df"
-                    rm -f "$_df.bak"
-                    echo "setup: patched $_df (added condition:'False' to buildtools/reclient)"
-                    _patched=$((_patched + 1))
-                fi
-            fi
-        done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
-        if [ "$_patched" -gt 0 ]; then
-            # Delete the cached dep graph so gclient re-reads the patched DEPS
-            # files. Without this, gclient uses .gclient_entries from the first
-            # pass (which still references infra/rbe/client) and the retry sync
-            # fails immediately without reading the patched files at all.
-            rm -f "$BUILD_DIR/pdfium_checkout/.gclient_entries"
-            echo "setup: retrying gclient sync after patching $_patched DEPS file(s) ..."
-            PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
-        else
-            echo "setup: infra/rbe/client not found in any downloaded DEPS — failure is unrelated, aborting"
-            exit "$_gclient_rc"
-        fi
-    fi
 fi
 
 # Patch: build/config/compiler/BUILD.gn defines COMPONENT_BUILD only when
