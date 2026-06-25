@@ -11,7 +11,7 @@ default: prepare license_check format analyze coverage doc_site
 pre_commit: format_check analyze license_check test
 .PHONY: pre_commit
 
-cicd: format_check analyze license_check test doc_site
+cicd: prepare format_check analyze license_check test doc_site
 .PHONY: cicd
 
 # END: Primary tasks
