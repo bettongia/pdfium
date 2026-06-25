@@ -61,9 +61,10 @@ solutions = [
       "buildtools/reclient": None,
     },
     "custom_vars" : {
-      "checkout_v8"       : False,
-      "checkout_skia"     : False,
-      "checkout_android"  : ${_checkout_android},
+      "checkout_v8"         : False,
+      "checkout_skia"       : False,
+      "checkout_android"    : ${_checkout_android},
+      "checkout_reclient"   : False,
     },
   },
 ]
@@ -89,6 +90,25 @@ GCLIENTEOF
         "$PDFIUM_SRC/DEPS"
     rm -f "$PDFIUM_SRC/DEPS.bak"
     echo "setup: patched DEPS to skip reclient CIPD download"
+
+    # Belt-and-suspenders: if DEPS declares checkout_reclient as True in its
+    # vars dict, flip it to False. On arm64 Linux infra/rbe/client/linux-arm64
+    # does not exist in CIPD, so any unconditional or host_os-gated reference
+    # fails. checkout_reclient=False in .gclient custom_vars covers the normal
+    # case; this patch covers DEPS that also set the var internally.
+    if grep -qF "'checkout_reclient': True" "$PDFIUM_SRC/DEPS" 2>/dev/null || \
+       grep -qF '"checkout_reclient": True' "$PDFIUM_SRC/DEPS" 2>/dev/null; then
+        python3 - "$PDFIUM_SRC/DEPS" << 'PATCHEOF'
+import sys
+with open(sys.argv[1]) as f:
+    text = f.read()
+text = text.replace("'checkout_reclient': True,", "'checkout_reclient': False,", 1)
+text = text.replace('"checkout_reclient": True,', '"checkout_reclient": False,', 1)
+with open(sys.argv[1], 'w') as f:
+    f.write(text)
+PATCHEOF
+        echo "setup: patched DEPS to set checkout_reclient=False (infra/rbe/client has no linux-arm64 CIPD package)"
+    fi
 
     echo "setup: running gclient sync — this downloads several GB and may take 20-40 minutes on first run ..."
     # --force bypasses the "uncommitted changes" check for the managed:False
