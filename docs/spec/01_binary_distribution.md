@@ -127,6 +127,6 @@ Platforms not covered by the smoke test:
 - **Android** — requires an Android runtime (device or emulator), not available
   on the Linux runner. The ELF binary is verified to have the correct
   architecture via `file(1)` instead.
-- **Linux arm64** — cross-compiled on an x86_64 runner; cannot `dlopen` an
-  arm64 ELF. ELF architecture verified via `file(1)`.
+- **Linux arm64** — built natively on `ubuntu-26.04-arm`; full dlopen smoke
+  test runs.
 - **WASM** — placeholder build pending Emscripten setup.
