@@ -47,8 +47,10 @@ if [ ! -d "$PDFIUM_SRC" ]; then
 
     # Write .gclient with managed:False so that gclient sync never resets
     # our manually-cloned pdfium working tree (or any DEPS patches on it).
-    # custom_deps: buildtools/reclient → None suppresses the CIPD download
-    # of the RBE remote-execution client (infra/rbe/client/$platform).
+    # custom_deps: pdfium/buildtools/reclient → None suppresses the CIPD
+    # download of the RBE remote-execution client (infra/rbe/client/$platform).
+    # The key uses the solution-prefixed full path that gclient stores internally
+    # (gclient normalises dep keys as "<solution>/<relative-path>").
     # That package does not exist for linux-arm64, and we never use RBE.
     # The unquoted heredoc allows ${_checkout_android} to be expanded.
     cat > "$BUILD_DIR/pdfium_checkout/.gclient" << GCLIENTEOF
@@ -58,7 +60,7 @@ solutions = [
     "deps_file"   : "DEPS",
     "managed"     : False,
     "custom_deps" : {
-      "buildtools/reclient": None,
+      "pdfium/buildtools/reclient": None,
     },
     "custom_vars" : {
       "checkout_v8"         : False,
@@ -91,75 +93,14 @@ GCLIENTEOF
     rm -f "$PDFIUM_SRC/DEPS.bak"
     echo "setup: patched DEPS to skip reclient CIPD download"
 
-    # DEPS may have infra/rbe/client in a root-level packages list gated only
-    # by host_os=="linux" — no checkout_reclient variable to suppress it with.
-    # infra/rbe/client/linux-arm64 does not exist in CIPD; cipd ensure fails.
-    # Use brace-matching to remove the { ... } dict directly from DEPS.
-    # ${platform} inside the string contains matching { } that cancel in depth.
-    if grep -q 'infra/rbe/client/' "$PDFIUM_SRC/DEPS" 2>/dev/null; then
-        python3 - "$PDFIUM_SRC/DEPS" << 'PATCHEOF'
-import sys
-
-with open(sys.argv[1]) as f:
-    text = f.read()
-
-# Set checkout_reclient=False if it exists as a variable (belt-and-suspenders)
-text = text.replace("'checkout_reclient': True,", "'checkout_reclient': False,", 1)
-text = text.replace('"checkout_reclient": True,', '"checkout_reclient": False,', 1)
-
-def remove_rbe_dict(text):
-    idx = text.find("'infra/rbe/client/")
-    if idx == -1:
-        idx = text.find('"infra/rbe/client/')
-    if idx == -1:
-        return text
-    # Walk backward to find opening { of the dict containing this string
-    j = idx - 1
-    depth = 0
-    while j >= 0:
-        c = text[j]
-        if c == '}':
-            depth += 1
-        elif c == '{':
-            if depth == 0:
-                break
-            depth -= 1
-        j -= 1
-    dict_start = j
-    # Walk forward to find matching closing }
-    j = dict_start
-    depth = 0
-    while j < len(text):
-        c = text[j]
-        if c == '{':
-            depth += 1
-        elif c == '}':
-            depth -= 1
-            if depth == 0:
-                break
-        j += 1
-    dict_end = j
-    # Remove from start of the line containing dict_start through dict_end,
-    # including any trailing comma
-    line_start = text.rfind('\n', 0, dict_start) + 1
-    after = dict_end + 1
-    while after < len(text) and text[after] in ' \t':
-        after += 1
-    if after < len(text) and text[after] == ',':
-        after += 1
-    return text[:line_start] + text[after:]
-
-for _ in range(5):
-    patched = remove_rbe_dict(text)
-    if patched == text:
-        break
-    text = patched
-
-with open(sys.argv[1], 'w') as f:
-    f.write(text)
-PATCHEOF
-        echo "setup: removed infra/rbe/client dict from DEPS (linux-arm64 package does not exist in CIPD)"
-    fi
+    # Diagnostic: confirm both patches (sed condition:'False' + custom_deps None)
+    # are in effect before we hand off to gclient. Output is visible in CI logs.
+    echo "=== pdfium/DEPS buildtools/reclient section (post-patch) ==="
+    grep -n -A5 "buildtools/reclient" "$PDFIUM_SRC/DEPS" || echo "(not found)"
+    echo "==="
+    echo "=== .gclient custom_deps (post-patch) ==="
+    grep -A2 "custom_deps" "$BUILD_DIR/pdfium_checkout/.gclient" || echo "(not found)"
+    echo "==="
 
     echo "setup: running gclient sync — this downloads several GB and may take 20-40 minutes on first run ..."
     # --force bypasses the "uncommitted changes" check for the managed:False
@@ -185,62 +126,21 @@ PATCHEOF
                 echo "==="
             fi
         done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
+        # Patch every DEPS file that contains 'buildtools/reclient' by adding
+        # 'condition': 'False' to that entry. This is the same sed-based
+        # approach as the pre-sync patch applied to pdfium/DEPS — it targets
+        # the dep entry key directly rather than searching for the CIPD
+        # package string (which lives in the vars dict, not the dep entry).
         _patched=0
         while IFS= read -r -d '' _df; do
-            if grep -q 'infra/rbe/client/' "$_df" 2>/dev/null; then
-                python3 - "$_df" << 'RBEEOF'
-import sys
-
-with open(sys.argv[1]) as f:
-    text = f.read()
-
-# Set checkout_reclient=False if declared (belt-and-suspenders)
-text = text.replace("'checkout_reclient': True,", "'checkout_reclient': False,", 1)
-text = text.replace('"checkout_reclient": True,', '"checkout_reclient": False,', 1)
-
-def remove_rbe_dict(t):
-    for q in ("'infra/rbe/client/", '"infra/rbe/client/'):
-        idx = t.find(q)
-        if idx != -1:
-            break
-    else:
-        return t
-    # Walk backward from the string to find the opening { of its dict.
-    # ${platform} contains balanced { } so depth counting stays correct.
-    j, depth = idx - 1, 0
-    while j >= 0:
-        if t[j] == '}': depth += 1
-        elif t[j] == '{':
-            if depth == 0: break
-            depth -= 1
-        j -= 1
-    ds = j
-    # Walk forward to find matching closing }
-    j, depth = ds, 0
-    while j < len(t):
-        if t[j] == '{': depth += 1
-        elif t[j] == '}':
-            depth -= 1
-            if depth == 0: break
-        j += 1
-    de = j
-    # Remove from start of line through dict_end, plus trailing comma
-    ls = t.rfind('\n', 0, ds) + 1
-    after = de + 1
-    while after < len(t) and t[after] in ' \t': after += 1
-    if after < len(t) and t[after] == ',': after += 1
-    return t[:ls] + t[after:]
-
-for _ in range(5):
-    new = remove_rbe_dict(text)
-    if new == text: break
-    text = new
-
-with open(sys.argv[1], 'w') as f:
-    f.write(text)
-RBEEOF
-                echo "setup: patched $_df (removed infra/rbe/client)"
-                _patched=$((_patched + 1))
+            if grep -q "'buildtools/reclient'" "$_df" 2>/dev/null; then
+                # Only patch if 'condition' isn't already present in the entry
+                if ! grep -A5 "'buildtools/reclient'" "$_df" | grep -q "'condition'"; then
+                    sed -i.bak "s|'buildtools/reclient': {|'buildtools/reclient': {\n    'condition': 'False',|" "$_df"
+                    rm -f "$_df.bak"
+                    echo "setup: patched $_df (added condition:'False' to buildtools/reclient)"
+                    _patched=$((_patched + 1))
+                fi
             fi
         done < <(find "$BUILD_DIR/pdfium_checkout" -name "DEPS" -print0 2>/dev/null)
         if [ "$_patched" -gt 0 ]; then
