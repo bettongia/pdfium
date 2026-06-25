@@ -29,17 +29,23 @@ mkdir -p $PDFIUM_OUT
 echo "Configure the build args: $PDFIUM_OUT/args.gn"
 
 envsubst < args.gn.tmpl > $PDFIUM_OUT/args.gn
+# is_component_build=true (the template default) produces libpdfium.dylib with
+# @rpath dependencies on sibling component dylibs — not a distributable
+# artifact. With is_component_build=false all component() targets become
+# source_sets; setup.sh adds pdfium_standalone which links them into a single
+# self-contained libpdfium.dylib with no external PDFium runtime dependencies.
+echo "is_component_build = false" >> $PDFIUM_OUT/args.gn
 
 echo "Running: $GN gen $PDFIUM_OUT"
 cd $PDFIUM_SRC && $GN gen $PDFIUM_OUT
 
 echo "Running ninja (this may take 10-30 minutes on first build) ..."
-cd $PDFIUM_SRC &&  ninja -C $PDFIUM_OUT pdfium -j$(sysctl -n hw.logicalcpu)
+cd $PDFIUM_SRC &&  ninja -C $PDFIUM_OUT pdfium_standalone -j$(sysctl -n hw.logicalcpu)
 
-echo "staging all dylibs to $PDFIUM_DIST/$PDFIUM_PLATFORM/ ..."
+echo "staging dylib to $PDFIUM_DIST/$PDFIUM_PLATFORM/ ..."
 mkdir -p $PDFIUM_DIST/$PDFIUM_PLATFORM
 
-cp $PDFIUM_OUT/*.dylib $PDFIUM_DIST/$PDFIUM_PLATFORM/
+cp $PDFIUM_OUT/libpdfium.dylib $PDFIUM_DIST/$PDFIUM_PLATFORM/
 install_name_tool -id @rpath/libpdfium.dylib $PDFIUM_DIST/$PDFIUM_PLATFORM/libpdfium.dylib
 
 echo "writing VERSION file ..."

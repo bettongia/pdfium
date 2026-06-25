@@ -184,25 +184,51 @@ PATCHEOF
     echo "setup: patched partition_alloc to use stack_trace_linux.cc for Android (no _Unwind_Backtrace)"
 fi
 
-# Patch: add pdfium_standalone target to BUILD.gn for Android distribution.
+# Patch: add pdfium_standalone target to BUILD.gn for all non-component builds.
 # With is_component_build=false, component("pdfium") becomes a source_set with
-# no .so output. pdfium_standalone wraps it in a shared_library so all PDFium
-# code (and its transitive source_set deps) is linked into a single libpdfium.so.
+# no binary output. pdfium_standalone wraps it in a shared_library so all PDFium
+# code (and its transitive source_set deps) is linked into a single binary.
+# Applies to macOS, Linux, and Android; iOS uses a separate static-lib path.
+#
+# Guard checks for the new platform-agnostic condition; if only the old
+# Android-specific block is present (stale cache), the python3 script removes
+# it and appends the new universal block.
 ROOT_BUILD="$PDFIUM_SRC/BUILD.gn"
-if [ -f "$ROOT_BUILD" ] && ! grep -q 'pdfium_standalone' "$ROOT_BUILD"; then
-    cat >> "$ROOT_BUILD" << 'GNCEOF'
+if [ -f "$ROOT_BUILD" ] && ! grep -qF 'if (!is_component_build) {' "$ROOT_BUILD"; then
+    python3 - "$ROOT_BUILD" << 'PATCHEOF'
+import sys
+with open(sys.argv[1]) as f:
+    text = f.read()
+# Remove old Android-only block if present (upgrade to platform-agnostic)
+old = (
+    '\n# Single self-contained libpdfium.so for Android distribution.\n'
+    '# With is_component_build=false all component() targets become source_sets;\n'
+    '# this shared_library links them all in to produce one distributable .so.\n'
+    'if (is_android && !is_component_build) {\n'
+    '  shared_library("pdfium_standalone") {\n'
+    '    output_name = "pdfium"\n'
+    '    deps = [ ":pdfium" ]\n'
+    '  }\n'
+    '}\n'
+)
+text = text.replace(old, '')
+text = text.rstrip() + '''
 
-# Single self-contained libpdfium.so for Android distribution.
+# Single self-contained distributable binary for non-component builds.
 # With is_component_build=false all component() targets become source_sets;
-# this shared_library links them all in to produce one distributable .so.
-if (is_android && !is_component_build) {
+# this shared_library links them all into one distributable binary
+# (macOS dylib, Linux .so, Android .so).
+if (!is_component_build) {
   shared_library("pdfium_standalone") {
     output_name = "pdfium"
     deps = [ ":pdfium" ]
   }
 }
-GNCEOF
-    echo "setup: patched BUILD.gn to add pdfium_standalone Android distribution target"
+'''
+with open(sys.argv[1], 'w') as f:
+    f.write(text)
+PATCHEOF
+    echo "setup: patched BUILD.gn to add pdfium_standalone distribution target (macOS/Linux/Android)"
 fi
 
 echo "setup: gclient sync complete. PDFium source is at $PDFIUM_SRC"
