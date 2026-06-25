@@ -12,28 +12,6 @@ permissions:
   id-token: write
 
 jobs:
-  test:
-    needs: build
-    continue-on-error: true
-    strategy:
-      matrix:
-        runner: [macos-26, ubuntu-26.04-arm]
-    runs-on: ${{ matrix.runner }}
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
-
-      - name: Fetch PDFium binary
-        run: make fetch_pdfium
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: dart test
-
   build:
     runs-on: ubuntu-26.04
 
@@ -56,13 +34,28 @@ jobs:
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - run: make cicd
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v5
         with:
           path: "./site"
+
+  test:
+    needs: build
+    continue-on-error: true
+    strategy:
+      matrix:
+        runner: [macos-26, ubuntu-26.04-arm]
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - run: dart test
 
   deployment:
     runs-on: ubuntu-latest
