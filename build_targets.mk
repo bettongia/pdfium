@@ -4,16 +4,16 @@
 # compiled locally. The pdfium-build orphan branch owns the build matrix.
 #
 # Canonical developer workflow:
-#   make fetch_pdfium          — download the binary matching PDFIUM_VERSION
-#   make check_pdfium_version  — verify the installed binary matches PDFIUM_VERSION
+#   make fetch_pdfium          — download binary + public headers matching PDFIUM_VERSION
+#   make check_pdfium_version  — verify installed binary and headers match PDFIUM_VERSION
 #   make ffi_bindings          — regenerate Dart FFI bindings after a SHA bump
 #
 # Bumping the PDFium SHA:
 #   1. Update PDFIUM_VERSION with the new commit SHA.
-#   2. git subtree pull to update third_party/pdfium/ (public headers).
-#   3. make ffi_bindings to regenerate lib/src/generated/pdfium_bindings.dart.
-#   4. Push main — CI rebuilds all platform binaries and publishes a release.
-#   5. make fetch_pdfium to pull the new binary into third_party/pdfium_bin/.
+#   2. Push main — CI rebuilds all platform binaries, packages public headers
+#      from the same commit, and publishes a new GitHub Release.
+#   3. make fetch_pdfium to install the new binary and headers locally.
+#   4. If the public API changed: make ffi_bindings to regenerate bindings.
 
 PDFIUM_BIN := third_party/pdfium_bin
 

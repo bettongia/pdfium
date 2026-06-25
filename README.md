@@ -29,10 +29,10 @@ Pre-built PDFium binaries are published as GitHub Releases from the
 make fetch_pdfium
 ```
 
-Downloads the binary matching `PDFIUM_VERSION` for your platform, verifies its
-SHA256 checksum, and installs it into `third_party/pdfium_bin/` (gitignored).
-The command is idempotent — it does nothing if the correct version is already
-installed.
+Downloads the platform binary and public headers matching `PDFIUM_VERSION`,
+verifies SHA256 checksums, and installs them into `third_party/pdfium_bin/` and
+`third_party/pdfium/` (both gitignored). The command is idempotent — it does
+nothing if the correct version is already installed.
 
 ### Verify
 
@@ -40,17 +40,17 @@ installed.
 make check_pdfium_version
 ```
 
-Confirms the installed binary matches `PDFIUM_VERSION`. This check runs
-automatically as part of `make pre_commit`.
+Confirms the installed binary and headers match `PDFIUM_VERSION`. This check
+runs automatically as part of `make pre_commit`.
 
 ### Bumping the PDFium version
 
 1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
-2. `git subtree pull` to update `third_party/pdfium/` (public headers).
-3. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`.
-4. Commit and push to `main` — CI rebuilds all platform binaries and publishes a
-   new GitHub Release.
-5. `make fetch_pdfium` to install the new binary locally.
+2. Commit and push to `main` — CI rebuilds all platform binaries, packages the
+   public headers from the same commit, and publishes a new GitHub Release.
+3. `make fetch_pdfium` to install the new binary and headers locally.
+4. If the public API changed: `make ffi_bindings` to regenerate
+   `lib/src/generated/pdfium_bindings.dart`, then commit the updated bindings.
 
 See [`docs/spec/binary_distribution.md`](docs/spec/binary_distribution.md) for
 the full distribution contract.
