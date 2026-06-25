@@ -58,7 +58,7 @@ the full distribution contract.
 ## Getting started
 
 1. Run `make fetch_pdfium` to install the PDFium binary (see above).
-2. Run `make ffi_bindings`
+2. Run `make ffi_bindings` to make sure the FFI bindings match the binaries.
 3. Run `make test` to validate the smoke test passes.
 
 ## Usage
