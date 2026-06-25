@@ -40,6 +40,7 @@
 //   outside the PDFium isolate.
 
 import 'dart:ffi' as ffi;
+import 'dart:io' show Platform;
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -2759,8 +2760,7 @@ class PdfiumIsolate {
 
     // Send the init command with the dylib path.
     final initReceivePort = ReceivePort();
-    final resolvedPath =
-        dylibPath ?? 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
+    final resolvedPath = dylibPath ?? _defaultDylibPath();
     commandPort.send(PdfiumInitCommand(initReceivePort.sendPort, resolvedPath));
 
     // Wait for the init response.
@@ -2807,4 +2807,13 @@ class PdfiumIsolate {
     }
     return response;
   }
+}
+
+String _defaultDylibPath() {
+  if (Platform.isLinux) {
+    final arch =
+        ffi.Abi.current() == ffi.Abi.linuxArm64 ? 'linux_arm64' : 'linux_x64';
+    return 'third_party/pdfium_bin/$arch/libpdfium.so';
+  }
+  return 'third_party/pdfium_bin/macos_arm64/libpdfium.dylib';
 }
