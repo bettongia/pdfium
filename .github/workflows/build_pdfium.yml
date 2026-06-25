@@ -9,6 +9,7 @@ on:
 jobs:
   # ── Apple (macOS arm64 + iOS arm64) ─────────────────────────────────────────
   build-apple:
+    if: false  # temporarily disabled while fixing linux-arm64
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
@@ -64,6 +65,7 @@ jobs:
 
   # ── Linux x86_64 ────────────────────────────────────────────────────────────
   build-linux-x64:
+    if: false  # temporarily disabled while fixing linux-arm64
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
@@ -159,6 +161,7 @@ jobs:
   # Smoke test skipped: Android .so files require an Android runtime
   # (device or emulator) and cannot be loaded natively on the Linux runner.
   build-android:
+    if: false  # temporarily disabled while fixing linux-arm64
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
