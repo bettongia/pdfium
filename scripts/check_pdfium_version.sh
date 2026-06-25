@@ -23,7 +23,7 @@ EXPECTED=$(tr -d '[:space:]' < PDFIUM_VERSION)
 
 if [ ! -f "$PDFIUM_BIN/VERSION" ]; then
     echo "check_pdfium_version: $PDFIUM_BIN/VERSION not found."
-    echo "  Run 'make fetch_pdfium' to install the PDFium binary."
+    echo "  Run 'make fetch_pdfium' to install the PDFium binary and headers."
     exit 1
 fi
 
@@ -34,6 +34,12 @@ if [ "$EXPECTED" != "$INSTALLED" ]; then
     echo "  expected:  $EXPECTED  (PDFIUM_VERSION)"
     echo "  installed: $INSTALLED (third_party/pdfium_bin/VERSION)"
     echo "  Run 'make fetch_pdfium' to update."
+    exit 1
+fi
+
+if [ ! -d "third_party/pdfium/public" ]; then
+    echo "check_pdfium_version: third_party/pdfium/public/ not found."
+    echo "  Run 'make fetch_pdfium' to install the PDFium headers."
     exit 1
 fi
 

@@ -56,8 +56,8 @@ lib/
 test/                          # dart test suite
 example/                       # Usage examples
 bin/                           # CLI entry points
-third_party/pdfium/            # PDFium public headers only (git subtree)
-  public/                      # Headers used for FFI binding generation
+third_party/pdfium/            # gitignored; populated by make fetch_pdfium
+  public/                      # PDFium public headers for FFI binding generation
 third_party/pdfium_bin/        # gitignored; populated by make fetch_pdfium
   macos_arm64/
     libpdfium.dylib            # macOS arm64 binary loaded by Dart FFI
@@ -100,20 +100,21 @@ Pre-built PDFium binaries are fetched from GitHub Releases. No local C++
 toolchain is required.
 
 ```bash
-make fetch_pdfium          # Download the binary matching PDFIUM_VERSION
-make check_pdfium_version  # Verify installed binary matches PDFIUM_VERSION
+make fetch_pdfium          # Download the binary and public headers matching PDFIUM_VERSION
+make check_pdfium_version  # Verify installed binary and headers match PDFIUM_VERSION
 make ffi_bindings          # Regenerate Dart FFI bindings from third_party/pdfium/public/
 ```
 
 **Developer setup:**
 
 1. Ensure `gh` (GitHub CLI) is installed and authenticated.
-2. Run `make fetch_pdfium` — downloads and installs the platform binary into
-   `third_party/pdfium_bin/` (gitignored).
+2. Run `make fetch_pdfium` — downloads the platform binary into
+   `third_party/pdfium_bin/` and the public headers into `third_party/pdfium/`
+   (both gitignored).
 3. Run `make test` — the smoke test in `test/pdfium_smoke_test.dart` exercises
    the library load/init/destroy round-trip.
 
-**Binary layout:**
+**Binary and headers layout:**
 
 ```
 third_party/pdfium_bin/       ← gitignored; populated by make fetch_pdfium
@@ -124,16 +125,19 @@ third_party/pdfium_bin/       ← gitignored; populated by make fetch_pdfium
   linux_arm64/
     libpdfium.so              ← loaded by Dart FFI on Linux arm64
   VERSION                     ← installed PDFium commit SHA (single line)
+third_party/pdfium/           ← gitignored; populated by make fetch_pdfium
+  public/                     ← PDFium public headers (from the same release)
 ```
 
 **Bumping the PDFium SHA:**
 
 1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
-2. `git subtree pull` to update `third_party/pdfium/` (public headers).
-3. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`.
-4. Commit and push — CI rebuilds all platform binaries and publishes a new
-   GitHub Release tagged `pdfium-<sha>`.
-5. `make fetch_pdfium` to install the new binary locally.
+2. Commit and push — CI rebuilds all platform binaries and packages the public
+   headers, then publishes a new GitHub Release tagged `pdfium-<sha>`.
+3. `make fetch_pdfium` to install the new binary and headers locally.
+4. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`
+   if the public API changed.
+5. Commit the updated bindings.
 
 See `docs/spec/binary_distribution.md` for the full distribution contract
 (artifact layout, tag format, checksum verification, smoke test coverage).

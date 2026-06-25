@@ -11,6 +11,7 @@ coverage/
 site/
 **/__pycache__
 .build/
+third_party/pdfium/
 third_party/pdfium_bin/
 dist/
 *.log

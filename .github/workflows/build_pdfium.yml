@@ -96,11 +96,24 @@ jobs:
           cc -o smoke_test scripts/smoke_test.c -ldl
           ./smoke_test dist/linux-x64/libpdfium.so
 
+      - name: Package public headers
+        working-directory: pdfium-build
+        run: |
+          STAGE="$(pwd)/dist"
+          cd build/pdfium_checkout/pdfium
+          zip -r "$STAGE/pdfium-headers.zip" public/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: linux-x64
           path: pdfium-build/dist/linux-x64/
+
+      - name: Upload headers artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pdfium-headers
+          path: pdfium-build/dist/pdfium-headers.zip
 
   # ── Linux arm64 (cross-compiled from x86_64) ────────────────────────────────
   # Built using the bundled Chromium clang cross-compiler with target_cpu=arm64
@@ -265,6 +278,7 @@ jobs:
           cp artifacts/linux-arm64/libpdfium.so          release/libpdfium-linux-arm64.so
           cp artifacts/android-arm64/libpdfium.so        release/libpdfium-android-arm64.so
           cp artifacts/android-x64/libpdfium.so          release/libpdfium-android-x86_64.so
+          cp artifacts/pdfium-headers/pdfium-headers.zip release/
 
       - name: Write VERSION.txt
         run: |

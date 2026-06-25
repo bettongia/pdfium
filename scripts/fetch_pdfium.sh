@@ -23,8 +23,8 @@ PDFIUM_BIN="third_party/pdfium_bin"
 SHA=$(tr -d '[:space:]' < PDFIUM_VERSION)
 TAG="pdfium-$SHA"
 
-# Idempotent: skip if the correct version is already installed.
-if [ -f "$PDFIUM_BIN/VERSION" ]; then
+# Idempotent: skip if the correct version is already installed (binary + headers).
+if [ -f "$PDFIUM_BIN/VERSION" ] && [ -d "third_party/pdfium/public" ]; then
     INSTALLED=$(tr -d '[:space:]' < "$PDFIUM_BIN/VERSION")
     if [ "$INSTALLED" = "$SHA" ]; then
         echo "fetch_pdfium: already at $SHA — nothing to do."
@@ -66,25 +66,31 @@ if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Download artifact + checksums to a temp directory.
+# Download binary + headers + checksums to a temp directory.
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-echo "fetch_pdfium: downloading $ARTIFACT from $TAG ..."
+echo "fetch_pdfium: downloading $ARTIFACT and pdfium-headers.zip from $TAG ..."
 gh release download "$TAG" \
     --repo "$REPO" \
     --pattern "$ARTIFACT" \
+    --pattern "pdfium-headers.zip" \
     --pattern "checksums.sha256" \
     --dir "$WORK"
 
-# Verify checksum (works on both macOS shasum and Linux sha256sum).
-echo "fetch_pdfium: verifying checksum ..."
+# Checksum helper (works on both macOS shasum and Linux sha256sum).
+_sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
+# Verify binary checksum.
+echo "fetch_pdfium: verifying $ARTIFACT checksum ..."
 EXPECTED=$(grep "$ARTIFACT" "$WORK/checksums.sha256" | awk '{print $1}')
-if command -v sha256sum >/dev/null 2>&1; then
-    ACTUAL=$(sha256sum "$WORK/$ARTIFACT" | awk '{print $1}')
-else
-    ACTUAL=$(shasum -a 256 "$WORK/$ARTIFACT" | awk '{print $1}')
-fi
+ACTUAL=$(_sha256 "$WORK/$ARTIFACT")
 if [ "$EXPECTED" != "$ACTUAL" ]; then
     echo "fetch_pdfium: checksum mismatch for $ARTIFACT"
     echo "  expected: $EXPECTED"
@@ -92,7 +98,18 @@ if [ "$EXPECTED" != "$ACTUAL" ]; then
     exit 1
 fi
 
-# Atomically install: copy into place, then update VERSION.
+# Verify headers checksum.
+echo "fetch_pdfium: verifying pdfium-headers.zip checksum ..."
+EXPECTED_H=$(grep "pdfium-headers.zip" "$WORK/checksums.sha256" | awk '{print $1}')
+ACTUAL_H=$(_sha256 "$WORK/pdfium-headers.zip")
+if [ "$EXPECTED_H" != "$ACTUAL_H" ]; then
+    echo "fetch_pdfium: checksum mismatch for pdfium-headers.zip"
+    echo "  expected: $EXPECTED_H"
+    echo "  actual:   $ACTUAL_H"
+    exit 1
+fi
+
+# Install binary.
 mkdir -p "$INSTALL_DIR"
 cp "$WORK/$ARTIFACT" "$INSTALL_DIR/$INSTALL_NAME"
 
@@ -101,6 +118,14 @@ if [ "$OS" = "Darwin" ]; then
     codesign --force --sign - "$INSTALL_DIR/$INSTALL_NAME"
 fi
 
+# Install public headers (extracted from pdfium-headers.zip → third_party/pdfium/public/).
+echo "fetch_pdfium: extracting public headers to third_party/pdfium/ ..."
+rm -rf third_party/pdfium
+mkdir -p third_party/pdfium
+unzip -q "$WORK/pdfium-headers.zip" -d third_party/pdfium
+
 echo "$SHA" > "$PDFIUM_BIN/VERSION"
 
-echo "fetch_pdfium: installed PDFium $SHA → $INSTALL_DIR/$INSTALL_NAME"
+echo "fetch_pdfium: installed PDFium $SHA"
+echo "  binary:  $INSTALL_DIR/$INSTALL_NAME"
+echo "  headers: third_party/pdfium/public/"
