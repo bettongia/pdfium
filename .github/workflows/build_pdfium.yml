@@ -208,6 +208,7 @@ jobs:
   # that will fail until build_wasm.sh is extended to install Emscripten
   # and the correct Emscripten version is determined from PDFium's DEPS.
   build-wasm:
+    if: false  # Emscripten setup not yet implemented — re-enable when ready
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
