@@ -96,6 +96,29 @@ GCLIENTEOF
         PATH="$DEPOT_TOOLS:$PATH" gclient sync --force --revision "pdfium@$PDFIUM_REVISION"
 fi
 
+# Patch: build/config/compiler/BUILD.gn defines COMPONENT_BUILD only when
+# is_component_build=true. When is_component_build=false the preprocessor
+# symbol is absent, so FPDF_EXPORT expands to nothing and all PDFium public
+# API symbols are hidden by -fvisibility=hidden — making dlsym fail at runtime.
+# Remove the is_component_build guard to always define COMPONENT_BUILD so
+# FPDF_EXPORT consistently expands to __attribute__((visibility("default"))).
+COMPILER_BUILD="$PDFIUM_SRC/build/config/compiler/BUILD.gn"
+if [ -f "$COMPILER_BUILD" ] && grep -qF 'if (is_component_build) {' "$COMPILER_BUILD"; then
+    python3 - "$COMPILER_BUILD" << 'PATCHEOF'
+import sys
+with open(sys.argv[1]) as f:
+    text = f.read()
+text = text.replace(
+    '  if (is_component_build) {\n    defines += [ "COMPONENT_BUILD" ]\n  }\n',
+    '  defines += [ "COMPONENT_BUILD" ]\n',
+    1,
+)
+with open(sys.argv[1], 'w') as f:
+    f.write(text)
+PATCHEOF
+    echo "setup: patched compiler/BUILD.gn to always define COMPONENT_BUILD (ensures FPDF_EXPORT symbols are exported from standalone builds)"
+fi
+
 # Patch: ios_sdk.gni references ios_automatically_manage_certs in testing/test.gni
 # but never declares it via declare_args. Add the declaration so iOS GN gen succeeds.
 IOS_SDK_GNI="$PDFIUM_SRC/build/config/ios/ios_sdk.gni"
