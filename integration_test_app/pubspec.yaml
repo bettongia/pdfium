@@ -1,0 +1,67 @@
+name: betto_pdfium_test_app
+description: >
+  Integration test harness for betto_pdfium — verifies that PDFium loads
+  correctly and that all major API operations work on iOS and Android devices.
+publish_to: none
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  betto_pdfium:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # PDF fixtures (mirrors test/data/ — populated by make sync_fixtures)
+    - assets/data/00_empty.pdf
+    - assets/data/01_basic.pdf
+    - assets/data/thumbnail_fixture.pdf
+    - assets/data/arxiv/
+    # PDF fixtures (mirrors test/fixtures/ — populated by make sync_fixtures)
+    - assets/fixtures/annotated_extra.pdf
+    - assets/fixtures/annotated_ink.pdf
+    - assets/fixtures/annotated_shapes.pdf
+    - assets/fixtures/annotated_text.pdf
+    - assets/fixtures/broken_image_metadata.pdf
+    - assets/fixtures/corrupt.pdf
+    - assets/fixtures/deep_toc.pdf
+    - assets/fixtures/empty_uri_link.pdf
+    - assets/fixtures/fit_toc.pdf
+    - assets/fixtures/flat_toc.pdf
+    - assets/fixtures/full_metadata.pdf
+    - assets/fixtures/large.pdf
+    - assets/fixtures/mixed.pdf
+    - assets/fixtures/multi_column.pdf
+    - assets/fixtures/multi_image.pdf
+    - assets/fixtures/multi_page_annotated.pdf
+    - assets/fixtures/nested_toc.pdf
+    - assets/fixtures/no_annotations.pdf
+    - assets/fixtures/no_images.pdf
+    - assets/fixtures/no_metadata.pdf
+    - assets/fixtures/no_toc.pdf
+    - assets/fixtures/partial_metadata.pdf
+    - assets/fixtures/password.pdf
+    - assets/fixtures/popup_annotation.pdf
+    - assets/fixtures/popup_freetext.pdf
+    - assets/fixtures/popup_multi.pdf
+    - assets/fixtures/scanned.pdf
+    - assets/fixtures/search_multipage.pdf
+    - assets/fixtures/search_single.pdf
+    - assets/fixtures/single_column.pdf
+    - assets/fixtures/single_image.pdf
+    - assets/fixtures/soft_hyphens.pdf
+    - assets/fixtures/zero_ink_stroke.pdf
+    - assets/fixtures/zero_polygon_vertices.pdf

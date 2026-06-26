@@ -19,9 +19,14 @@ include: package:lints/recommended.yaml
 #   rules:
 #     - camel_case_types
 
-# analyzer:
-#   exclude:
-#     - path/to/excluded/files/**
+analyzer:
+  exclude:
+    # integration_test_app/ is a separate Flutter package with its own
+    # pubspec.yaml and analysis_options.yaml. It depends on Flutter SDK packages
+    # (flutter_test, integration_test) that are not available to the root Dart
+    # analyzer. Exclude it here so `dart analyze` only covers the pure-Dart
+    # package in lib/, test/, hook/, and bin/.
+    - integration_test_app/**
 
 # For more information about the core and recommended set of lints, see
 # https://dart.dev/go/core-lints

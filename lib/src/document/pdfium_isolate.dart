@@ -2822,6 +2822,9 @@ class PdfiumIsolate {
 /// (static xcframework linked at build time) and Android loads by bare name
 /// from the APK `jni/{abi}/` directory.
 String? _defaultDylibPathOrNull() {
+  // coverage:ignore-next-line
+  // iOS and Android always return null here; they are platform-gated and
+  // cannot be reached on the macOS/Linux test host.
   if (Platform.isIOS || Platform.isAndroid) return null;
   if (Platform.isLinux) {
     final arch = ffi.Abi.current() == ffi.Abi.linuxArm64
@@ -2860,12 +2863,17 @@ String? _defaultDylibPathOrNull() {
 ///     several absolute candidate paths (dart build output, dart test staged
 ///     location, hook cache).
 ffi.DynamicLibrary _openLibrary() {
+  // coverage:ignore-start
+  // iOS and Android branches are only reachable on physical/emulated devices;
+  // the macOS/Linux test host cannot exercise them. They are excluded from
+  // coverage so the 90% gate is not penalised for platform-gated code.
   if (Platform.isIOS) {
     return ffi.DynamicLibrary.process();
   }
   if (Platform.isAndroid) {
     return ffi.DynamicLibrary.open('libpdfium.so');
   }
+  // coverage:ignore-end
   if (Platform.isLinux) {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     final cwd = Directory.current.path;

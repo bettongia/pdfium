@@ -1,0 +1,13 @@
+# Android JNI libraries — populated by scripts/fetch_mobile_binaries.sh
+android/src/main/jniLibs/
+
+# iOS xcframework — populated by scripts/fetch_mobile_binaries.sh
+ios/Frameworks/
+
+# Flutter build outputs
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock

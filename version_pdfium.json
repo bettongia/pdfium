@@ -12,6 +12,18 @@
     "linux-x64": {
       "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-linux-x86_64.so",
       "sha256": "6087e592c77d65861932efb7d6d4017abb1582a2a1e77d3ba4b0b70f47e3c6b9"
+    },
+    "ios-arm64": {
+      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-ios-arm64.xcframework.zip",
+      "sha256": "c446cb1e5026624ca4b2aa0f3f9dda061ba4983abf7a13202121ffbcdb96ebb7"
+    },
+    "android-arm64": {
+      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-android-arm64.so",
+      "sha256": "39d9ae96bfad52d9090719a3c1fdbe2e5eb0eabcb70344b5953b51db451aff37"
+    },
+    "android-x64": {
+      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-android-x86_64.so",
+      "sha256": "ca830b8215cc58d6fc967ce86798f4089d88aaba7627adfea736db8dec22c056"
     }
   }
 }

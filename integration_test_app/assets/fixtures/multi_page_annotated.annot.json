@@ -1,0 +1,65 @@
+[
+  {
+    "pageIndex": 0,
+    "annotations": [
+      {
+        "type": "Text",
+        "rect": [
+          453.54,
+          714.33,
+          510.24,
+          771.02
+        ],
+        "contents": "Sticky note on page 0",
+        "author": "Multi-Page Author",
+        "color": null,
+        "modifiedDate": null,
+        "quadPoints": null,
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      }
+    ]
+  },
+  {
+    "pageIndex": 1,
+    "annotations": []
+  },
+  {
+    "pageIndex": 2,
+    "annotations": [
+      {
+        "type": "Highlight",
+        "rect": [
+          742.68,
+          742.68,
+          1005.68,
+          756.68
+        ],
+        "contents": "Highlight on page 2",
+        "author": "Multi-Page Author",
+        "color": [
+          1.0,
+          1.0,
+          0.0
+        ],
+        "modifiedDate": "D:20260519052951",
+        "quadPoints": [
+          57.0,
+          756.68,
+          320.0,
+          756.68,
+          57.0,
+          742.68,
+          320.0,
+          742.68
+        ],
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      }
+    ]
+  }
+]

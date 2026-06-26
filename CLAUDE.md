@@ -56,10 +56,22 @@ lib/
     generated/
       pdfium_bindings.dart     # Auto-generated FFI bindings (committed; regenerate
                                # with make ffi_bindings)
-version_pdfium.json            # Hook platform manifest: SHA, URLs, SHA-256 digests
+version_pdfium.json            # Hook + mobile manifest: SHA, URLs, SHA-256 digests
 test/                          # dart test suite
 example/                       # Usage examples
 bin/                           # CLI entry points
+integration_test_app/          # Flutter app for iOS/Android on-device integration tests
+  lib/main.dart                # Minimal Flutter scaffold
+  integration_test/
+    pdfium_test.dart           # Full mobile test suite (mirrors dart test suite)
+  assets/                      # PDF fixtures (populated by make sync_fixtures)
+  scripts/
+    fetch_mobile_binaries.sh   # Downloads iOS xcframework + Android .so from release
+  ios/
+    LocalPackages/pdfium/      # Local SPM package: source target + binaryTarget
+    Frameworks/                # gitignored; xcframework populated by fetch_mobile_binaries.sh
+  android/
+    src/main/jniLibs/          # gitignored; .so files populated by fetch_mobile_binaries.sh
 third_party/pdfium/            # gitignored; populated by make fetch_pdfium
   public/                      # PDFium public headers for FFI binding generation
 third_party/pdfium_bin/        # gitignored; populated by make fetch_pdfium
@@ -158,6 +170,49 @@ See `docs/spec/01_binary_distribution.md` for the full distribution contract
 **FFI bindings:** The generated file `lib/src/generated/pdfium_bindings.dart`
 is committed so that developers can build and run Dart code without the build
 pipeline. Regenerate with `make ffi_bindings` whenever PDFium headers change.
+
+### Mobile integration test app
+
+`integration_test_app/` is a Flutter app that runs the `betto_pdfium` test
+suite on a connected iOS or Android device/simulator. It uses
+`flutter test integration_test/` and loads PDF fixtures from the Flutter asset
+bundle rather than the filesystem.
+
+**One-time global setup:**
+```bash
+flutter config --enable-swift-package-manager
+```
+
+**Per-clone setup (from `integration_test_app/`):**
+```bash
+scripts/fetch_mobile_binaries.sh
+# iOS only: open ios/Runner.xcworkspace in Xcode and add the local package:
+#   File → Add Package Dependencies → Add Local → select ios/LocalPackages/pdfium/
+# Commit the resulting project.pbxproj change.
+```
+
+**Makefile targets:**
+```bash
+make sync_fixtures          # Copy test/fixtures/ + test/data/ into assets/ (run before mobile tests)
+make fetch_mobile_binaries  # Download iOS xcframework + Android .so from GitHub Release
+make ios_test               # sync_fixtures + fetch_mobile_binaries + flutter test on iOS simulator
+make android_test           # sync_fixtures + fetch_mobile_binaries + flutter test on Android emulator
+make emulator_ios_create    # Create the ios-emulator simulator (one-time)
+make emulator_android_create # Create the android AVD (one-time)
+make emulators_stop         # Stop all running emulators
+```
+
+Environment variables (set in your shell or `~/.zshrc`):
+- `EMULATOR_IOS` — iOS simulator name (default: `ios-emulator`)
+- `EMULATOR_IOS_DEVICE` — simulator device type (default: `iPhone 17`)
+- `EMULATOR_IOS_RUNTIME` — simulator runtime (default: `iOS26.5`)
+- `EMULATOR_ANDROID` — Android AVD name (default: `android-emulator`)
+- `ADB_BINARY_PATH` — path to `adb` (default: `~/Library/Android/sdk/platform-tools`)
+
+**Running tests manually (from `integration_test_app/`):**
+```bash
+flutter test integration_test/ -d <device-id>
+```
 
 ## Architecture
 

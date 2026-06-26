@@ -80,8 +80,20 @@ _sha_for() {
 MACOS_ARM64_SHA=$(_sha_for "libpdfium-macos-arm64.dylib")
 LINUX_ARM64_SHA=$(_sha_for "libpdfium-linux-arm64.so")
 LINUX_X64_SHA=$(_sha_for "libpdfium-linux-x86_64.so")
+IOS_ARM64_SHA=$(_sha_for "libpdfium-ios-arm64.xcframework.zip")
+ANDROID_ARM64_SHA=$(_sha_for "libpdfium-android-arm64.so")
+ANDROID_X64_SHA=$(_sha_for "libpdfium-android-x86_64.so")
 
 # Write version_pdfium.json.
+# The manifest contains both hook-consumed entries (macos-arm64, linux-arm64,
+# linux-x64) and mobile-only entries consumed exclusively by
+# integration_test_app/scripts/fetch_mobile_binaries.sh:
+#   - ios-arm64:     static xcframework for the iOS integration test app
+#   - android-arm64: shared library for the Android integration test app
+#   - android-x64:   shared library for the Android integration test app (x86_64)
+#
+# The native-assets hook (hook/build.dart) ignores ios-arm64, android-arm64,
+# and android-x64 entries — it only reads the three hook-supported platforms.
 cat > version_pdfium.json <<EOF
 {
   "pdfium_sha": "$SHA",
@@ -97,6 +109,18 @@ cat > version_pdfium.json <<EOF
     "linux-x64": {
       "url": "$BASE_URL/libpdfium-linux-x86_64.so",
       "sha256": "$LINUX_X64_SHA"
+    },
+    "ios-arm64": {
+      "url": "$BASE_URL/libpdfium-ios-arm64.xcframework.zip",
+      "sha256": "$IOS_ARM64_SHA"
+    },
+    "android-arm64": {
+      "url": "$BASE_URL/libpdfium-android-arm64.so",
+      "sha256": "$ANDROID_ARM64_SHA"
+    },
+    "android-x64": {
+      "url": "$BASE_URL/libpdfium-android-x86_64.so",
+      "sha256": "$ANDROID_X64_SHA"
     }
   }
 }
@@ -135,10 +159,13 @@ const pdfiumSha = '$SHA';
 EOF
 
 echo "update_pdfium_manifest: done."
-echo "  SHA:              $SHA"
-echo "  macos-arm64 sha256: $MACOS_ARM64_SHA"
-echo "  linux-arm64 sha256: $LINUX_ARM64_SHA"
-echo "  linux-x64   sha256: $LINUX_X64_SHA"
+echo "  SHA:                    $SHA"
+echo "  macos-arm64 sha256:     $MACOS_ARM64_SHA"
+echo "  linux-arm64 sha256:     $LINUX_ARM64_SHA"
+echo "  linux-x64   sha256:     $LINUX_X64_SHA"
+echo "  ios-arm64   sha256:     $IOS_ARM64_SHA"
+echo "  android-arm64 sha256:   $ANDROID_ARM64_SHA"
+echo "  android-x64   sha256:   $ANDROID_X64_SHA"
 echo ""
 echo "Next steps:"
 echo "  make fetch_pdfium          # install binary + headers locally"

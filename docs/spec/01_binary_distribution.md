@@ -118,22 +118,46 @@ runs automatically when `dart build`, `dart run`, or `dart test` is invoked
 
 ### Platform manifest — `version_pdfium.json`
 
-`version_pdfium.json` at the package root is the single source of truth for the
-hook. It must be updated whenever `PDFIUM_VERSION` is bumped:
+`version_pdfium.json` at the package root is the single source of truth for
+download URLs and SHA-256 digests. It must be updated whenever `PDFIUM_VERSION`
+is bumped. `scripts/update_pdfium_manifest.sh` (run via `make
+update_pdfium_manifest`) rewrites this file automatically by reading
+`checksums.sha256` from the GitHub Release.
+
+The manifest contains **six platform entries** — three consumed by the
+native-assets hook (`hook/build.dart`) and three consumed exclusively by the
+mobile integration test app (`integration_test_app/scripts/fetch_mobile_binaries.sh`):
 
 ```json
 {
   "pdfium_sha": "<40-char SHA>",
   "platforms": {
-    "macos-arm64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-<sha>/libpdfium-macos-arm64.dylib",
-      "sha256": "<lowercase hex SHA-256>"
-    },
-    "linux-arm64": { "url": "...", "sha256": "..." },
-    "linux-x64":   { "url": "...", "sha256": "..." }
+    "macos-arm64":  { "url": "...", "sha256": "..." },
+    "linux-arm64":  { "url": "...", "sha256": "..." },
+    "linux-x64":    { "url": "...", "sha256": "..." },
+    "ios-arm64":    { "url": "..libpdfium-ios-arm64.xcframework.zip", "sha256": "..." },
+    "android-arm64":{ "url": "..libpdfium-android-arm64.so", "sha256": "..." },
+    "android-x64":  { "url": "..libpdfium-android-x86_64.so", "sha256": "..." }
   }
 }
 ```
+
+**Consumer mapping:**
+
+| Platform key    | Consumer                              | Purpose                           |
+| --------------- | ------------------------------------- | --------------------------------- |
+| `macos-arm64`   | `hook/build.dart`                     | Native-assets dylib staging       |
+| `linux-arm64`   | `hook/build.dart`                     | Native-assets .so staging         |
+| `linux-x64`     | `hook/build.dart`                     | Native-assets .so staging         |
+| `ios-arm64`     | `fetch_mobile_binaries.sh`            | iOS integration test app only     |
+| `android-arm64` | `fetch_mobile_binaries.sh`            | Android integration test app only |
+| `android-x64`   | `fetch_mobile_binaries.sh`            | Android integration test app only |
+
+The `hook/build.dart` native-assets hook reads only the three hook-supported
+platform entries and ignores `ios-arm64`, `android-arm64`, and `android-x64`.
+This is intentional: the iOS static xcframework cannot be staged by the
+native-assets hook (Flutter iOS enforces dynamic link mode), and Android
+native-assets support is pending.
 
 `lib/src/pdfium_version.dart` exports a `pdfiumSha` constant that must equal
 `version_pdfium.json`'s `pdfium_sha`. It is used at runtime by `_openLibrary()`
@@ -145,11 +169,58 @@ staged the binary to a well-known location.
 | Platform | Status | Reason |
 |---|---|---|
 | iOS | Hook skipped | PDFium XCFramework is static; Flutter iOS native-assets enforces dynamic link mode |
-| Android | Hook skipped | Build pipeline artifacts not yet in a working state |
+| Android | Hook skipped | Native-assets Android support pending |
 | Windows | Hook skipped | No Windows binary in the build pipeline yet |
 
 On these platforms `_openLibrary()` in the runtime uses platform-appropriate
 fallbacks (`DynamicLibrary.process()` for iOS, bare `libpdfium.so` for Android).
+
+The iOS and Android binaries are available in `version_pdfium.json` and are
+used by the mobile integration test app (`integration_test_app/`) which bundles
+them manually — see [Mobile integration test app](#mobile-integration-test-app).
+
+### Mobile integration test app
+
+`integration_test_app/` is a standalone Flutter app that verifies PDFium works
+correctly on iOS and Android by running the same test suite as the desktop
+`dart test` suite. It uses a manual binary-bundling approach:
+
+**iOS:**
+- `fetch_mobile_binaries.sh` downloads and verifies the xcframework (from the
+  `ios-arm64` manifest entry), unzipping it to `ios/Frameworks/pdfium.xcframework`.
+- A local Swift Package Manager package at `ios/LocalPackages/pdfium/` vends
+  the xcframework via a `binaryTarget`.
+
+**iOS dead-strip prevention:**
+Because PDFium is a C library resolved entirely at runtime via
+`DynamicLibrary.process()`, the linker has no compile-time references to any
+`FPDF_*` symbol and would normally dead-strip the entire static archive. A bare
+`binaryTarget` is not sufficient to prevent this.
+
+The local SPM package uses **two targets** to prevent dead-stripping:
+
+1. `pdfium_binary` — the `binaryTarget` pointing to the xcframework.
+2. `pdfium` — a source target that depends on `pdfium_binary` and contains
+   `Sources/PdfiumAnchor/pdfium_anchor.c`. This C file holds:
+   ```c
+   extern void FPDF_InitLibraryWithConfig(const void* config);
+   __attribute__((used)) static void* __pdfium_anchor =
+       (void*)&FPDF_InitLibraryWithConfig;
+   ```
+   `__attribute__((used))` prevents the compiler from optimising away the
+   pointer. The linker then sees a compile-time reference to
+   `FPDF_InitLibraryWithConfig`, pulls the translation unit from the archive,
+   and the transitive closure of PDFium survives dead-stripping.
+   `DynamicLibrary.process()` can then resolve all `FPDF_*` symbols at runtime.
+
+**Android:**
+- `fetch_mobile_binaries.sh` downloads and verifies the `.so` files (from the
+  `android-arm64` and `android-x64` manifest entries) into
+  `android/src/main/jniLibs/{abi}/libpdfium.so`.
+- Flutter's Gradle build picks up `jniLibs/` automatically — no `build.gradle`
+  changes needed.
+- At runtime, `DynamicLibrary.open('libpdfium.so')` resolves the library by
+  its bare name (the OS loads it from the APK's `lib/{abi}/` directory).
 
 ## Bumping the PDFium version
 

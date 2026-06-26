@@ -1,0 +1,29 @@
+[
+  {
+    "pageIndex": 0,
+    "annotations": [
+      {
+        "type": "Ink",
+        "rect": [
+          416.69,
+          416.69,
+          841.89,
+          558.43
+        ],
+        "contents": "A free-draw ink stroke",
+        "author": null,
+        "color": [
+          0.5,
+          0.0,
+          0.5
+        ],
+        "modifiedDate": null,
+        "quadPoints": null,
+        "inkList": null,
+        "vertices": null,
+        "linePoints": null,
+        "interiorColor": null
+      }
+    ]
+  }
+]
