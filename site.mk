@@ -19,13 +19,13 @@ $(SITE_DIR):
 # Generate header with $repo$ replaced by the pubspec.yaml repository URL.
 # include-before-body content is verbatim in pandoc (not template-processed),
 # so substitution must happen before pandoc runs.
-$(_HEADER): $(DOCS_DIR)/template/header.html pubspec.yaml | $(SITE_DIR)
+$(_HEADER): $(DOCS_DIR)/template/header.html packages/betto_pdfium/pubspec.yaml | $(SITE_DIR)
 	sed -e 's|\$$name\$$|$(PKG_NAME)|g' \
 	    -e 's|\$$version\$$|$(PKG_VERSION)|g' \
 	    -e 's|\$$repo\$$|$(REPO_URL)|g' \
 	    $< > $@
 
-$(_INDEX): $(DOCS_DIR)/index.md pubspec.yaml | $(SITE_DIR)
+$(_INDEX): $(DOCS_DIR)/index.md packages/betto_pdfium/pubspec.yaml | $(SITE_DIR)
 	sed -e 's|\$$name\$$|$(PKG_NAME)|g' \
 	    -e 's|\$$version\$$|$(PKG_VERSION)|g' \
 	    -e 's|\$$repo\$$|$(REPO_URL)|g' \
