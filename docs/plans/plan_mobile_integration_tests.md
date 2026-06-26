@@ -136,7 +136,10 @@ integration_test_app/
       pdfium.xcframework/
     LocalPackages/
       pdfium/
-        Package.swift            # local SPM binary target referencing ../Frameworks/pdfium.xcframework
+        Package.swift            # local SPM package: source target + binaryTarget
+        Sources/
+          PdfiumAnchor/
+            pdfium_anchor.c      # references FPDF_InitLibraryWithConfig to prevent dead-stripping
   pubspec.yaml
   .gitignore
 ```
@@ -151,7 +154,14 @@ Flutter's SPM support is enabled with:
 flutter config --enable-swift-package-manager
 ```
 
-A local SPM package vends the xcframework as a binary target:
+A local SPM package vends the xcframework. A bare `binaryTarget` is not
+sufficient: because PDFium is a C library with no Swift/ObjC wrapper and Dart
+resolves all symbols at runtime via `DynamicLibrary.process()`, the linker has
+zero compile-time references to `FPDF_*` and is free to dead-strip the entire
+archive. To prevent this, the package adds a thin C source target that
+explicitly references `FPDF_InitLibraryWithConfig`, mirroring the established pattern in this project where a thin native source
+target creates compile-time symbol references to a static xcframework so that
+`DynamicLibrary.process()` can resolve them at runtime.
 
 **`ios/LocalPackages/pdfium/Package.swift`:**
 ```swift
@@ -165,13 +175,30 @@ let package = Package(
         .library(name: "pdfium", targets: ["pdfium"]),
     ],
     targets: [
-        .binaryTarget(
+        .target(
             name: "pdfium",
+            dependencies: ["pdfium_binary"],
+            path: "Sources/PdfiumAnchor"
+        ),
+        .binaryTarget(
+            name: "pdfium_binary",
             path: "../../Frameworks/pdfium.xcframework"
         ),
     ]
 )
 ```
+
+**`ios/LocalPackages/pdfium/Sources/PdfiumAnchor/pdfium_anchor.c`:**
+```c
+extern void FPDF_InitLibraryWithConfig(const void* config);
+__attribute__((used)) static void* __pdfium_anchor = (void*)&FPDF_InitLibraryWithConfig;
+```
+
+The `__attribute__((used))` prevents the compiler from optimising away the
+reference. The linker then sees a reference to `FPDF_InitLibraryWithConfig`,
+pulls that translation unit from the archive, and the transitive closure of the
+library survives dead-stripping. `DynamicLibrary.process()` can then resolve
+all `FPDF_*` symbols at runtime.
 
 The path `../../Frameworks/pdfium.xcframework` is relative to the `Package.swift`
 and resolves to `ios/Frameworks/pdfium.xcframework` — the gitignored location
@@ -216,9 +243,9 @@ Once `version_pdfium.json` contains all six platform entries, the script:
    - `ios/Frameworks/pdfium.xcframework/` (unzipped from `.xcframework.zip`)
 
 > **Android note**: the Android `.so` artifacts in the release tagged
-> `pdfium-75ea0a73…` were broken (5 KB stub). Root cause: the release was
-> built before commit `873adf898` ("Always define COMPONENT_BUILD") landed
-> in the `pdfium-build` branch. Without `COMPONENT_BUILD`, `FPDF_EXPORT`
+> `pdfium-75ea0a73…` were initially broken (5 KB stub). Root cause: the
+> release was built before commit `873adf898` ("Always define COMPONENT_BUILD")
+> landed in the `pdfium-build` branch. Without `COMPONENT_BUILD`, `FPDF_EXPORT`
 > expanded to nothing; `-fvisibility=hidden` hid all symbols; `--gc-sections`
 > removed all code. Fix shipped 2026-06-26:
 > - `build_pdfium.yml`: Android cache key bumped `v2 → v3` (forces a fresh
@@ -228,9 +255,9 @@ Once `version_pdfium.json` contains all six platform entries, the script:
 >   with a clear error if neither the stripped nor unstripped `.so` exceeds
 >   1 MiB, with a pointer to the COMPONENT_BUILD patch.
 >
-> The release will be rebuilt (workflow_dispatch) once these commits land.
-> After the rebuild, `android-arm64` and `android-x64` entries can be added
-> to `version_pdfium.json` with the correct SHA-256s from the new release.
+> The release was rebuilt on 2026-06-26. Both Android artifacts in
+> `pdfium-75ea0a73…` are now confirmed working (>3 MB each). Android manifest
+> entries and emulator verification are unblocked.
 
 > **Future**: once the hook gains working Android support, `flutter build` will
 > bundle the `.so` automatically via native-assets and the Android half of
@@ -332,14 +359,37 @@ flutter test integration_test/ -d <device-id>
 - [ ] **Flutter app scaffold** — `lib/main.dart` and `pubspec.yaml` (with asset
       declarations for all PDFs in `assets/`).
 
-- [ ] **Copy PDF fixtures** — mirror `test/fixtures/` and `test/data/` into
-      `integration_test_app/assets/`.
+- [ ] **Makefile targets** — add the following to the root `Makefile`,
+      following the same pattern as the mobile targets in the ONNX Runtime
+      package:
+      - `sync_fixtures` — copies `test/fixtures/` and `test/data/` into
+        `integration_test_app/assets/` via `rsync -a --delete`
+      - `fetch_mobile_binaries` — runs
+        `integration_test_app/scripts/fetch_mobile_binaries.sh`
+      - `ios_test` — depends on `sync_fixtures` and `fetch_mobile_binaries`;
+        boots the simulator if not already booted, then runs
+        `flutter test integration_test/` against it
+      - `android_test` — depends on `sync_fixtures` and
+        `fetch_mobile_binaries`; launches the Android emulator, waits for
+        device, then runs `flutter test integration_test/`
+      - `emulator_ios_create` / `emulator_android_create` — one-time AVD/
+        simulator creation
+      - `emulators_stop` / `emulators_stop_ios` / `emulators_stop_android`
+        — tear down running emulators
 
-- [ ] **`ios/LocalPackages/pdfium/Package.swift`** — local SPM binary target
-      referencing the xcframework. Enable Flutter SPM support with
-      `flutter config --enable-swift-package-manager`. Add the local package to
-      the Xcode project (one-time manual step); commit the `project.pbxproj`
-      change so the reference is version-controlled.
+- [ ] **Populate PDF fixtures** — run `make sync_fixtures` to perform the
+      initial copy of `test/fixtures/` and `test/data/` into
+      `integration_test_app/assets/`; commit the result.
+
+- [ ] **`ios/LocalPackages/pdfium/` SPM package** — create `Package.swift`
+      with a source target (`pdfium`) depending on a `binaryTarget`
+      (`pdfium_binary`) pointing to `../../Frameworks/pdfium.xcframework`.
+      Create `Sources/PdfiumAnchor/pdfium_anchor.c` with an
+      `__attribute__((used))` pointer to `FPDF_InitLibraryWithConfig` to
+      prevent linker dead-stripping. Enable Flutter SPM support with
+      `flutter config --enable-swift-package-manager`. Add the local package
+      to the Xcode project (one-time manual step); commit the
+      `project.pbxproj` change so the reference is version-controlled.
 
 - [ ] **`.gitignore`** — exclude `android/src/main/jniLibs/` and
       `ios/Frameworks/`.
@@ -352,8 +402,24 @@ flutter test integration_test/ -d <device-id>
 
 - [ ] **Verify on Android emulator** — same but with an Android device/emulator.
 
+- [ ] **Update `docs/spec/01_binary_distribution.md`** — two additions:
+      (a) document the three new `version_pdfium.json` entries (`ios-arm64`,
+      `android-arm64`, `android-x64`) and clarify they are consumed by
+      `fetch_mobile_binaries.sh`, not the native-assets hook; (b) document the
+      iOS dead-strip prevention mechanism (SPM source target with C anchor
+      file) so future maintainers understand why `Package.swift` has two
+      targets rather than just a `binaryTarget`.
+
 - [ ] **Update `CLAUDE.md`** — document the `integration_test_app/` and how to
       run it.
+
+- [ ] **Quality review** — invoke the `bettongia:quality-reviewer` agent to
+      audit all code and changes produced by this plan before marking the work
+      complete.
+
+- [ ] **`make pre_commit` must pass** — run `make pre_commit` (format check,
+      static analysis, license check, tests) and confirm it exits cleanly. The
+      plan-implement agent must not finish until this gate is green.
 
 ## Reviews
 
@@ -481,27 +547,66 @@ mechanism; (e) reconcile against `docs/roadmap/`.
 
 **Open questions**
 
-- [ ] How will iOS avoid linker dead-stripping of the statically-linked PDFium
+- [x] How will iOS avoid linker dead-stripping of the statically-linked PDFium
       archive? `DynamicLibrary.process()` only works if the symbols survive the
       link. Does the SPM `binaryTarget` need `-force_load` / `-all_load` / a
       `-Wl,-u,_FPDF_InitLibraryWithConfig` reference, and where is that flag set?
-- [ ] Add an explicit task to update `docs/spec/01_binary_distribution.md` for
+      _Decision: the local SPM package adds a thin C source target
+      (`Sources/PdfiumAnchor/pdfium_anchor.c`) alongside the `binaryTarget`.
+      The C file holds a single `__attribute__((used))` pointer to
+      `FPDF_InitLibraryWithConfig`, giving the linker a compile-time reference
+      that prevents dead-stripping without needing any Xcode linker flag changes.
+      See the "iOS binary embedding" section for the full `Package.swift` and
+      source file._
+- [x] Add an explicit task to update `docs/spec/01_binary_distribution.md` for
       the extended `version_pdfium.json` (ios-arm64, android-arm64, android-x64)
       and to clarify that those entries are consumed by `fetch_mobile_binaries.sh`,
       not the hook. Will the plan own this spec change?
-- [ ] Android scope: given the artifacts are a broken 5 KB stub, should the
+      _Decision: yes, this plan owns the spec update. Two spec tasks are added
+      to the implementation plan: one for the extended manifest entries, one for
+      the iOS dead-strip prevention mechanism (the SPM source target pattern)._
+- [x] Android scope: given the artifacts are a broken 5 KB stub, should the
       "Verify on Android emulator" step and the Android manifest digests be
       deferred until the build pipeline ships a real `.so`, rather than pinning a
       checksum to a stub?
-- [ ] Are the full `flutter create`-generated `ios/` and `android/` project
+      _Decision: unblocked. The release `pdfium-75ea0a73…` was rebuilt
+      2026-06-26; both Android artifacts are confirmed working (>3 MB each).
+      Android manifest entries and emulator verification proceed as planned —
+      no deferral needed._
+- [x] Are the full `flutter create`-generated `ios/` and `android/` project
       trees committed (so the `project.pbxproj` local-package reference is
       reproducible), or regenerated per clone?
-- [ ] What is the anti-drift strategy for the ~40 duplicated PDF fixtures — a
+      _Decision: committed. The `project.pbxproj` local-package reference
+      requires the surrounding Xcode project to be version-controlled, and
+      committing the generated trees is consistent with how the zstd
+      `integration_test_app` is structured in this project._
+- [x] What is the anti-drift strategy for the ~40 duplicated PDF fixtures — a
       sync script run before the on-device suite, or accepted manual copy?
-- [ ] Do the iOS/Android branches added to `pdfium_isolate.dart` keep
+      _Decision: a `make sync_fixtures` target in the root `Makefile` that
+      copies `test/fixtures/` and `test/data/` into
+      `integration_test_app/assets/`. It is wired as a prerequisite of
+      `make ios_test` and `make android_test` so fixtures are always
+      up-to-date before a mobile test run. The initial population of
+      `integration_test_app/assets/` is done by running `make sync_fixtures`
+      once; the assets directory is committed so the app works without a
+      prior sync, but the target ensures the canonical source stays in sync
+      as the desktop suite evolves._
+- [x] Do the iOS/Android branches added to `pdfium_isolate.dart` keep
       `make coverage` at/above 90% (coverage-ignored or otherwise accounted for)?
-- [ ] Should this work be recorded as a roadmap item (e.g. under v0.07) so the
+      _Decision: the package does not currently meet the 90% gate, so this
+      plan does not regress against it. Instead: (a) apply
+      `// coverage:ignore` pragmas to the iOS/Android platform-gated branches
+      in `pdfium_isolate.dart` — they are unreachable on the macOS/Linux test
+      host and mocking them would not constitute meaningful coverage; (b) any
+      new Dart code added to the main package by this plan should aim for 90%
+      coverage of that new code specifically; (c) `integration_test_app/`
+      code is itself the test harness and does not require unit test coverage
+      of its own._
+- [x] Should this work be recorded as a roadmap item (e.g. under v0.07) so the
       mobile-verification effort is traceable?
+      _Decision: done. The mobile integration test app is explicitly documented
+      in `docs/roadmap/0_01.md` as a planned item under the v0.01 milestone,
+      with scope, status table, and a pointer to this plan._
 
 ## Summary
 
