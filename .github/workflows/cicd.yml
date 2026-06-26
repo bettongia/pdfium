@@ -22,6 +22,12 @@ jobs:
         with:
           sdk: stable
 
+      # Flutter is required for `flutter analyze` (betto_pdfium_ios) and
+      # `flutter pub get` (integration_test_app) called by `make cicd`.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y lcov
 
@@ -32,6 +38,12 @@ jobs:
         run: |
           go install github.com/google/addlicense@latest
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
+      - name: Cache PDFium binary
+        uses: actions/cache@v5
+        with:
+          path: packages/betto_pdfium/.dart_tool/betto_pdfium
+          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/PDFIUM_VERSION') }}
 
       - run: make cicd
 
@@ -54,6 +66,15 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+
+      - name: Cache PDFium binary
+        uses: actions/cache@v5
+        with:
+          path: packages/betto_pdfium/.dart_tool/betto_pdfium
+          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/PDFIUM_VERSION') }}
+
+      - name: dart pub get
+        run: cd packages/betto_pdfium && dart pub get
 
       - run: cd packages/betto_pdfium && dart test
 
