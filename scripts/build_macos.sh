@@ -35,6 +35,12 @@ envsubst < args.gn.tmpl > $PDFIUM_OUT/args.gn
 # source_sets; setup.sh adds pdfium_standalone which links them into a single
 # self-contained libpdfium.dylib with no external PDFium runtime dependencies.
 echo "is_component_build = false" >> $PDFIUM_OUT/args.gn
+# Reserve 32 KB of Mach-O header space for install name rewrites.
+# Without this flag the linker leaves only ~48 bytes of headerpad, which is
+# just enough for the current path depth but breaks when the package is nested
+# in a monorepo subdirectory and Dart's native-assets bundler sets a longer
+# absolute install path.
+echo 'extra_ldflags = "-Wl,-headerpad_max_install_names"' >> $PDFIUM_OUT/args.gn
 
 echo "Running: $GN gen $PDFIUM_OUT"
 cd $PDFIUM_SRC && $GN gen $PDFIUM_OUT
