@@ -3,10 +3,10 @@ SITE_DIR = site
 DOCS_DIR = docs
 
 # Extract fields from pubspec.yaml for header template substitution
-PKG_NAME    := $(shell awk '/^name:/{print $$2}'        pubspec.yaml)
-PKG_DESC    := $(shell awk '/^description:/{print $$2}' pubspec.yaml)
-PKG_VERSION := $(shell awk '/^version:/{print $$2}'     pubspec.yaml)
-REPO_URL    := $(shell awk '/^repository:/{print $$2}'  pubspec.yaml)
+PKG_NAME    := $(shell awk '/^name:/{print $$2}'        packages/betto_pdfium/pubspec.yaml)
+PKG_DESC    := $(shell awk '/^description:/{print $$2}' packages/betto_pdfium/pubspec.yaml)
+PKG_VERSION := $(shell awk '/^version:/{print $$2}'     packages/betto_pdfium/pubspec.yaml)
+REPO_URL    := $(shell awk '/^repository:/{print $$2}'  packages/betto_pdfium/pubspec.yaml)
 _HEADER := $(SITE_DIR)/_header.html
 _INDEX  := $(SITE_DIR)/_index.md
 
@@ -47,7 +47,7 @@ $(SITE_DIR)/spec.html: $(DOCS_DIR)/spec/*.md $(DOCS_DIR)/.pandoc $(_HEADER) | $(
 $(SITE_DIR)/roadmap.html: $(DOCS_DIR)/roadmap/*.md $(DOCS_DIR)/.pandoc $(_HEADER) | $(SITE_DIR)
 	pandoc --defaults="$(DOCS_DIR)/.pandoc" $(DOCS_DIR)/roadmap/*.md -o "$(SITE_DIR)/roadmap.html";
 
-$(SITE_DIR)/api/index.html: lib/** test/** | $(SITE_DIR)
-	dart doc -o $(SITE_DIR)/api/index.html
+$(SITE_DIR)/api/index.html: packages/betto_pdfium/lib/** | $(SITE_DIR)
+	cd packages/betto_pdfium && dart doc --output $(CURDIR)/$(SITE_DIR)/api
 
 # END: Documentation site tasks

@@ -3,7 +3,7 @@ name: Build PDFium
 on:
   push:
     branches: [main]
-    paths: [PDFIUM_VERSION]
+    paths: [packages/betto_pdfium/PDFIUM_VERSION]
   workflow_dispatch:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
 
       - name: Read PDFium SHA
         id: sha
-        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(cat packages/betto_pdfium/PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
         uses: actions/cache@v6
@@ -76,7 +76,7 @@ jobs:
 
       - name: Read PDFium SHA
         id: sha
-        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(cat packages/betto_pdfium/PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
         uses: actions/cache@v6
@@ -134,7 +134,7 @@ jobs:
 
       - name: Read PDFium SHA
         id: sha
-        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(cat packages/betto_pdfium/PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
         uses: actions/cache@v6
@@ -195,7 +195,7 @@ jobs:
 
       - name: Read PDFium SHA
         id: sha
-        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(cat packages/betto_pdfium/PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
         uses: actions/cache@v6
@@ -245,7 +245,7 @@ jobs:
 
       - name: Read PDFium SHA
         id: sha
-        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(cat packages/betto_pdfium/PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Cache build workspace
         uses: actions/cache@v6
@@ -282,7 +282,7 @@ jobs:
 
       - name: Read PDFium SHA
         id: sha
-        run: echo "sha=$(cat PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(cat packages/betto_pdfium/PDFIUM_VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v8

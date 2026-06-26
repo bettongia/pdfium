@@ -11,8 +11,7 @@ coverage/
 site/
 **/__pycache__
 .build/
-third_party/pdfium/
-third_party/pdfium_bin/
+packages/betto_pdfium/third_party/
 dist/
 *.log
 build-logs/

@@ -55,7 +55,7 @@ jobs:
         with:
           sdk: stable
 
-      - run: dart test
+      - run: cd packages/betto_pdfium && dart test
 
   deployment:
     runs-on: ubuntu-latest
