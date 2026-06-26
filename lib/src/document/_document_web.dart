@@ -33,6 +33,7 @@
 import 'dart:typed_data';
 
 import 'pdf_types.dart';
+import '../rendering/pdf_page_size.dart';
 
 /// Web backend for [PdfDocument] — currently a stub pending the PDFium WASM build.
 ///
@@ -100,6 +101,24 @@ class PdfDocumentImpl {
   /// Not yet implemented on web.
   Future<bool> isPlainTextExtractable({
     PdfTextExtractorConfig config = const PdfTextExtractorConfig(),
+  }) async {
+    throw UnsupportedError('PdfDocument web support is not yet implemented.');
+  }
+
+  /// Not yet implemented on web.
+  Future<PdfPageSize> getPageSize(int pageIndex) async {
+    throw UnsupportedError('PdfDocument web support is not yet implemented.');
+  }
+
+  /// Not yet implemented on web.
+  Future<({Uint8List pixels, int pixelWidth, int pixelHeight})>
+  renderPageToBytes(
+    int pageIndex,
+    int pixelWidth,
+    int pixelHeight, {
+    bool renderAnnotations = true,
+    bool lcdText = false,
+    int backgroundColor = 0xFFFFFFFF,
   }) async {
     throw UnsupportedError('PdfDocument web support is not yet implemented.');
   }

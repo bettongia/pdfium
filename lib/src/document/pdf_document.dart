@@ -82,8 +82,9 @@ export '../rendering/pdf_page_size.dart';
 /// | Platform              | Backend                   |
 /// | --------------------- | ------------------------- |
 /// | iOS, Android, macOS,  | dart:ffi + PdfiumIsolate  |
-/// | Windows, Linux        |                           |
+/// | Linux                 |                           |
 /// | Web                   | PDFium WASM (pending)     |
+/// | Windows               | Not yet supported         |
 ///
 /// On native platforms all PDFium calls run on a dedicated [Isolate] so the
 /// caller's isolate (typically the UI isolate) is never blocked. On web,
