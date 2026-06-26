@@ -59,3 +59,17 @@ API for rasterising a PDF page into a `dart:ui Image` via `renderPage()`, plus
 the `PdfPageView` Flutter widget that wraps it. Covers `PdfRenderOptions`, the
 BGRA rendering pipeline inside the isolate, high-DPI scaling, caching behaviour,
 and in-flight cancellation.
+
+### [Testing](10_testing.md)
+
+How to run the Dart test suite, measure coverage, and execute mobile integration
+tests on iOS simulators and Android emulators. Covers the
+`betto_pdfium_ios` companion plugin's role in iOS testing and the
+`integration_test_app/` Flutter app.
+
+### [Releasing](11_releasing.md)
+
+Release process for publishing `betto_pdfium` and `betto_pdfium_ios` to
+pub.dev. Covers lock-step versioning, the required publish order (`betto_pdfium`
+first), dry-run validation, and the rationale for keeping both packages at the
+same version.
