@@ -1,6 +1,6 @@
 # Mobile integration test app (iOS and Android)
 
-**Status**: Questions
+**Status**: Implementing
 
 **PR link**: _not yet submitted_
 
