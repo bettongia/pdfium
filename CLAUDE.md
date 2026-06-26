@@ -34,54 +34,70 @@ All code files must have a license header. The template is `@header_template.txt
 
 ## Repository Layout
 
+This is a monorepo. The root `Makefile` is a compositor that includes
+per-package `.mk` fragments. Run all `make` commands from the repo root.
+
 ```
-hook/
-  build.dart                   # Native-assets hook: downloads PDFium binary at build time
-lib/
-  betto_pdfium.dart           # Public library entry point
-  src/
-    document/
-      pdf_document.dart        # PdfDocument public API (conditional import façade)
-      _document_native.dart    # dart:ffi backend (iOS, Android, macOS, Linux)
-      _document_web.dart       # WASM backend (pending)
-      _document_stub.dart      # Throws UnsupportedError on unrecognised platforms
-      pdfium_isolate.dart      # Process-wide PDFium isolate singleton
-      isolate_messages.dart    # Message types for isolate round-trips
-      pdf_types.dart           # Public data types (PdfMetadata, PdfPageText, etc.)
-      pdf_date_parser.dart     # PDF date string parser
-    rendering/
-      pdf_page_size.dart       # PdfPageSize — page dimensions in points
-    pdf_exception.dart         # PdfExtractionException, PdfiumException, PdfError
-    pdfium_version.dart        # pdfiumSha constant — must match version_pdfium.json
-    generated/
-      pdfium_bindings.dart     # Auto-generated FFI bindings (committed; regenerate
+Makefile                       # Root compositor — includes per-package .mk files
+site.mk                        # Documentation site targets
+packages/
+  betto_pdfium/                # Pure Dart PDFium wrapper package
+    betto_pdfium.mk            # Per-package Makefile fragment
+    hook/
+      build.dart               # Native-assets hook: downloads PDFium binary at build time
+    lib/
+      betto_pdfium.dart        # Public library entry point
+      src/
+        document/
+          pdf_document.dart    # PdfDocument public API (conditional import façade)
+          _document_native.dart  # dart:ffi backend (macOS, Linux)
+          _document_web.dart   # WASM backend (pending)
+          _document_stub.dart  # Throws UnsupportedError on unrecognised platforms
+          pdfium_isolate.dart  # Process-wide PDFium isolate singleton
+          isolate_messages.dart  # Message types for isolate round-trips
+          pdf_types.dart       # Public data types (PdfMetadata, PdfPageText, etc.)
+          pdf_date_parser.dart # PDF date string parser
+        rendering/
+          pdf_page_size.dart   # PdfPageSize — page dimensions in points
+        pdf_exception.dart     # PdfExtractionException, PdfiumException, PdfError
+        pdfium_version.dart    # pdfiumSha constant — must match version_pdfium.json
+        generated/
+          pdfium_bindings.dart # Auto-generated FFI bindings (committed; regenerate
                                # with make ffi_bindings)
-version_pdfium.json            # Hook + mobile manifest: SHA, URLs, SHA-256 digests
-test/                          # dart test suite
-example/                       # Usage examples
-bin/                           # CLI entry points
-integration_test_app/          # Flutter app for iOS/Android on-device integration tests
-  lib/main.dart                # Minimal Flutter scaffold
-  integration_test/
-    pdfium_test.dart           # Full mobile test suite (mirrors dart test suite)
-  assets/                      # PDF fixtures (populated by make sync_fixtures)
-  scripts/
-    fetch_mobile_binaries.sh   # Downloads iOS xcframework + Android .so from release
-  ios/
-    LocalPackages/pdfium/      # Local SPM package: source target + binaryTarget
-    Frameworks/                # gitignored; xcframework populated by fetch_mobile_binaries.sh
-  android/
-    src/main/jniLibs/          # gitignored; .so files populated by fetch_mobile_binaries.sh
-third_party/pdfium/            # gitignored; populated by make fetch_pdfium
-  public/                      # PDFium public headers for FFI binding generation
-third_party/pdfium_bin/        # gitignored; populated by make fetch_pdfium
-  macos_arm64/
-    libpdfium.dylib            # macOS arm64 binary loaded by Dart FFI
-  linux_x64/
-    libpdfium.so               # Linux x86_64 binary loaded by Dart FFI
-  linux_arm64/
-    libpdfium.so               # Linux arm64 binary loaded by Dart FFI
-  VERSION                      # Installed PDFium commit SHA (single line)
+    version_pdfium.json        # Hook + mobile manifest: SHA, URLs, SHA-256 digests
+    test/                      # dart test suite
+    example/                   # Usage examples
+    bin/                       # CLI entry points
+    integration_test_app/      # Flutter app for iOS/Android on-device integration tests
+      lib/main.dart            # Minimal Flutter scaffold
+      integration_test/
+        pdfium_test.dart       # Full mobile test suite (mirrors dart test suite)
+      assets/                  # PDF fixtures (populated by make sync_fixtures)
+      scripts/
+        fetch_mobile_binaries.sh  # Downloads iOS xcframework + Android .so from release
+      ios/
+        Frameworks/            # gitignored; xcframework populated by fetch_mobile_binaries.sh
+      android/
+        src/main/jniLibs/      # gitignored; .so files populated by fetch_mobile_binaries.sh
+    third_party/pdfium/        # gitignored; populated by make fetch_pdfium
+      public/                  # PDFium public headers for FFI binding generation
+    third_party/pdfium_bin/    # gitignored; populated by make fetch_pdfium
+      macos_arm64/
+        libpdfium.dylib        # macOS arm64 binary loaded by Dart FFI
+      linux_x64/
+        libpdfium.so           # Linux x86_64 binary loaded by Dart FFI
+      linux_arm64/
+        libpdfium.so           # Linux arm64 binary loaded by Dart FFI
+      VERSION                  # Installed PDFium commit SHA (single line)
+  betto_pdfium_ios/            # Flutter iOS companion plugin
+    betto_pdfium_ios.mk        # Per-package Makefile fragment
+    ios/betto_pdfium_ios/
+      Package.swift            # SPM package: PdfiumIos → PdfiumAnchor → pdfium_binary
+      Sources/
+        PdfiumAnchor/          # C anchor that references FPDF_InitLibraryWithConfig
+        PdfiumIos/             # Swift Flutter plugin stub (BettoPdfiumIosPlugin)
+    ios/Frameworks/            # gitignored; xcframework populated by fetch_mobile_binaries.sh
+    pubspec.yaml               # Flutter plugin pubspec (iOS platform only)
 docs/
   plans/                       # Implementation plans (see plans/README.md)
   roadmap/                     # Version roadmap files (vX_YY.md format)
@@ -90,16 +106,17 @@ docs/
 
 ## Commands
 
-`make` is preferred over calling `dart` directly. This is a **pure Dart**
-package — never use `flutter` commands.
+`make` is preferred over calling `dart` directly. Always run from the **repo
+root** — the root Makefile delegates to per-package fragments. This is a
+**pure Dart** package — never use `flutter` commands for `betto_pdfium`.
 
 ```bash
 make test          # Run tests (dart test — hook downloads binary automatically)
-make analyze       # dart analyze
+make analyze       # dart analyze (betto_pdfium) + flutter analyze (betto_pdfium_ios)
 make format        # dart format
 make coverage      # dart test --coverage + genhtml (outputs to site/coverage/)
-make pre_commit    # format_check + analyze + license_check + test
-make cicd          # format_check + analyze + license_check + test + doc_site
+make pre_commit    # format_check + analyze + analyze_ios + license_check + test
+make cicd          # format_check + analyze + analyze_ios + license_check + test + doc_site
 make license_add   # Add license headers to source files (via addlicense)
 make clean         # Remove site/, dist/, coverage/, *.log
 ```
@@ -107,7 +124,7 @@ make clean         # Remove site/, dist/, coverage/, *.log
 To run a single test file directly:
 
 ```bash
-dart test test/pdf_types_test.dart
+dart test packages/betto_pdfium/test/pdf_types_test.dart
 ```
 
 ### PDFium binary commands
@@ -134,7 +151,7 @@ make update_pdfium_manifest  # Rewrite version_pdfium.json + pdfium_version.dart
 **Binary and headers layout:**
 
 ```
-third_party/pdfium_bin/       ← gitignored; populated by make fetch_pdfium
+packages/betto_pdfium/third_party/pdfium_bin/   ← gitignored; populated by make fetch_pdfium
   macos_arm64/
     libpdfium.dylib           ← loaded by Dart FFI on macOS arm64
   linux_x64/
@@ -142,7 +159,7 @@ third_party/pdfium_bin/       ← gitignored; populated by make fetch_pdfium
   linux_arm64/
     libpdfium.so              ← loaded by Dart FFI on Linux arm64
   VERSION                     ← installed PDFium commit SHA (single line)
-third_party/pdfium/           ← gitignored; populated by make fetch_pdfium
+packages/betto_pdfium/third_party/pdfium/       ← gitignored; populated by make fetch_pdfium
   public/                     ← PDFium public headers (from the same release)
 ```
 
@@ -173,22 +190,25 @@ pipeline. Regenerate with `make ffi_bindings` whenever PDFium headers change.
 
 ### Mobile integration test app
 
-`integration_test_app/` is a Flutter app that runs the `betto_pdfium` test
-suite on a connected iOS or Android device/simulator. It uses
-`flutter test integration_test/` and loads PDF fixtures from the Flutter asset
-bundle rather than the filesystem.
+`packages/betto_pdfium/integration_test_app/` is a Flutter app that runs the
+`betto_pdfium` test suite on a connected iOS or Android device/simulator. It
+uses `flutter test integration_test/` and loads PDF fixtures from the Flutter
+asset bundle rather than the filesystem.
+
+iOS support is provided by `packages/betto_pdfium_ios/` — a minimal Flutter
+plugin that carries the PDFium static xcframework as an SPM dependency. Flutter
+auto-discovers it via the integration test app's `pubspec.yaml` path dependency
+and wires it into `FlutterGeneratedPluginSwiftPackage` automatically; no manual
+Xcode steps are required.
 
 **One-time global setup:**
 ```bash
 flutter config --enable-swift-package-manager
 ```
 
-**Per-clone setup (from `integration_test_app/`):**
+**Per-clone setup (from repo root):**
 ```bash
-scripts/fetch_mobile_binaries.sh
-# iOS only: open ios/Runner.xcworkspace in Xcode and add the local package:
-#   File → Add Package Dependencies → Add Local → select ios/LocalPackages/pdfium/
-# Commit the resulting project.pbxproj change.
+make fetch_mobile_binaries
 ```
 
 **Makefile targets:**
@@ -223,8 +243,8 @@ used in CLI tools, server-side Dart, and any non-Flutter context.
 
 ### Platform split
 
-`PdfDocument` in `lib/src/document/pdf_document.dart` is a thin façade over a
-conditional import:
+`PdfDocument` in `packages/betto_pdfium/lib/src/document/pdf_document.dart` is
+a thin façade over a conditional import:
 
 | Condition               | Backend                 |
 | ----------------------- | ----------------------- |
@@ -239,7 +259,8 @@ files.
 ### PDFium isolate
 
 PDFium is not thread-safe. All PDFium calls run on a single dedicated
-`Isolate` — `PdfiumIsolate` in `lib/src/document/pdfium_isolate.dart`.
+`Isolate` — `PdfiumIsolate` in
+`packages/betto_pdfium/lib/src/document/pdfium_isolate.dart`.
 
 - **Singleton:** `PdfiumIsolate` is lazily spawned on the first
   `PdfDocument.fromBytes()` call and held for the process lifetime.
