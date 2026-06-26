@@ -23,11 +23,16 @@ echo "configuring GN build for $PDFIUM_PLATFORM ..."
 DEPOT_TOOLS_UPDATE=0
 PATH="$DEPOT_TOOLS:$PATH"
 
-mkdir -p $PDFIUM_OUT
+LLVM_AR="$PDFIUM_SRC/third_party/llvm-build/Release+Asserts/bin/llvm-ar"
 
-# iOS requires a static library; is_component_build=true (shared) is not
-# supported on iOS. Args written directly rather than via args.gn.tmpl.
-cat > $PDFIUM_OUT/args.gn << 'ARGSEOF'
+# build_slice <out_dir> <target_environment>
+# Configures, builds, and merges a single iOS slice (device or simulator).
+build_slice() {
+    local out="$1"
+    local env="$2"
+
+    mkdir -p "$out"
+    cat > "$out/args.gn" << ARGSEOF
 is_debug = false
 pdf_is_standalone = true
 is_component_build = false
@@ -37,39 +42,50 @@ use_custom_libcxx = false
 clang_use_chrome_plugins = false
 target_cpu = "arm64"
 target_os = "ios"
-target_environment = "device"
+target_environment = "$env"
 ios_deployment_target = "16.0"
 ios_automatically_manage_certs = false
 ios_enable_code_signing = false
 ARGSEOF
 
-echo "Running: $GN gen $PDFIUM_OUT"
-cd $PDFIUM_SRC && $GN gen $PDFIUM_OUT
+    echo "Running: $GN gen $out (environment=$env)"
+    cd $PDFIUM_SRC && $GN gen "$out"
 
-echo "Running ninja (this may take 10-30 minutes on first build) ..."
-cd $PDFIUM_SRC && ninja -C $PDFIUM_OUT pdfium -j$(sysctl -n hw.logicalcpu)
+    echo "Running ninja for $env ..."
+    cd $PDFIUM_SRC && ninja -C "$out" pdfium -j$(sysctl -n hw.logicalcpu)
 
-echo "merging static libraries into libpdfium.a ..."
-# PDFium's ninja build uses LLVM thin archives (.a files that store absolute
-# paths to .o files rather than embedding them). Collect all .o files directly
-# from obj/ and pack them into a single fat archive in one llvm-ar invocation.
-LLVM_AR="$PDFIUM_SRC/third_party/llvm-build/Release+Asserts/bin/llvm-ar"
-OBJ_FILES=()
-while IFS= read -r -d '' f; do
-    OBJ_FILES+=("$f")
-done < <(find "$PDFIUM_OUT/obj" -name "*.o" -print0)
-"$LLVM_AR" rcs "$PDFIUM_OUT/libpdfium.a" "${OBJ_FILES[@]}"
+    echo "Merging static libraries into $out/libpdfium.a ..."
+    # PDFium's ninja build uses LLVM thin archives (.a files that store absolute
+    # paths to .o files rather than embedding them). Collect all .o files directly
+    # from obj/ and pack them into a single fat archive in one llvm-ar invocation.
+    local obj_files=()
+    while IFS= read -r -d '' f; do
+        obj_files+=("$f")
+    done < <(find "$out/obj" -name "*.o" -print0)
+    "$LLVM_AR" rcs "$out/libpdfium.a" "${obj_files[@]}"
+}
+
+# Build device and simulator slices.
+PDFIUM_OUT_DEVICE="${PDFIUM_OUT}_device"
+PDFIUM_OUT_SIM="${PDFIUM_OUT}_sim"
+
+build_slice "$PDFIUM_OUT_DEVICE" "device"
+build_slice "$PDFIUM_OUT_SIM"    "simulator"
 
 echo "packaging xcframework ..."
 # Build the xcframework directory structure manually — xcodebuild -create-xcframework
-# cannot determine the platform for archives produced by LLVM toolchain.
+# cannot determine the platform for archives produced by the LLVM toolchain.
+# The xcframework contains two slices:
+#   ios-arm64           — physical device (arm64)
+#   ios-arm64-simulator — Apple Silicon simulator (arm64, platform variant: simulator)
 STAGE_DIR="$PDFIUM_DIST/$PDFIUM_PLATFORM"
 mkdir -p "$STAGE_DIR"
 
 XCFRAMEWORK="$STAGE_DIR/libpdfium.xcframework"
-LIB_ID="ios-arm64"
-mkdir -p "$XCFRAMEWORK/$LIB_ID"
-cp "$PDFIUM_OUT/libpdfium.a" "$XCFRAMEWORK/$LIB_ID/"
+mkdir -p "$XCFRAMEWORK/ios-arm64"
+mkdir -p "$XCFRAMEWORK/ios-arm64-simulator"
+cp "$PDFIUM_OUT_DEVICE/libpdfium.a" "$XCFRAMEWORK/ios-arm64/"
+cp "$PDFIUM_OUT_SIM/libpdfium.a"    "$XCFRAMEWORK/ios-arm64-simulator/"
 
 cat > "$XCFRAMEWORK/Info.plist" << 'PLISTEOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -89,6 +105,20 @@ cat > "$XCFRAMEWORK/Info.plist" << 'PLISTEOF'
             </array>
             <key>SupportedPlatform</key>
             <string>ios</string>
+        </dict>
+        <dict>
+            <key>LibraryIdentifier</key>
+            <string>ios-arm64-simulator</string>
+            <key>LibraryPath</key>
+            <string>libpdfium.a</string>
+            <key>SupportedArchitectures</key>
+            <array>
+                <string>arm64</string>
+            </array>
+            <key>SupportedPlatform</key>
+            <string>ios</string>
+            <key>SupportedPlatformVariant</key>
+            <string>simulator</string>
         </dict>
     </array>
     <key>CFBundlePackageType</key>
