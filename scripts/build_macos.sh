@@ -35,12 +35,27 @@ envsubst < args.gn.tmpl > $PDFIUM_OUT/args.gn
 # source_sets; setup.sh adds pdfium_standalone which links them into a single
 # self-contained libpdfium.dylib with no external PDFium runtime dependencies.
 echo "is_component_build = false" >> $PDFIUM_OUT/args.gn
-# Reserve 32 KB of Mach-O header space for install name rewrites.
-# Without this flag the linker leaves only ~48 bytes of headerpad, which is
-# just enough for the current path depth but breaks when the package is nested
-# in a monorepo subdirectory and Dart's native-assets bundler sets a longer
-# absolute install path.
-echo 'extra_ldflags = "-Wl,-headerpad_max_install_names"' >> $PDFIUM_OUT/args.gn
+
+# Reserve 32 KB of Mach-O header space for install_name_tool rewrites.
+# PDFium inherits Chromium's build system but does not expose extra_ldflags as
+# a GN declare_args variable, so we patch the toolchain source directly.
+# Approach from https://github.com/bblanchon/pdfium-binaries
+TOOLCHAIN_GNI="$PDFIUM_SRC/build/toolchain/apple/toolchain.gni"
+python3 - "$TOOLCHAIN_GNI" <<'PYEOF'
+import sys
+path = sys.argv[1]
+with open(path) as f:
+    content = f.read()
+marker = 'otool = "${prefix}llvm-otool"'
+patch_line = '      linker_driver_args += " -Wl,-headerpad_max_install_names"'
+if 'headerpad_max_install_names' not in content:
+    content = content.replace(marker, marker + '\n' + patch_line, 1)
+    with open(path, 'w') as f:
+        f.write(content)
+    print(f'  patched {path}')
+else:
+    print(f'  {path} already patched')
+PYEOF
 
 echo "Running: $GN gen $PDFIUM_OUT"
 cd $PDFIUM_SRC && $GN gen $PDFIUM_OUT
