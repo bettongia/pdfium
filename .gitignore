@@ -6,7 +6,7 @@
 # https://dart.dev/tools/pub/private-files#pubspec-lock.
 pubspec.lock
 
-.claude/agent-memory/
+.claude
 coverage/
 site/
 **/__pycache__

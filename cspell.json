@@ -2,21 +2,29 @@
   "version": "0.2",
   "words": [
     "clang",
+    "descope",
     "dylib",
     "Emscripten",
     "ffigen",
+    "FPDF",
+    "fvisibility",
     "gclient",
     "genhtml",
     "harfbuzz",
     "lcov",
     "libjpeg",
+    "libpdfium",
     "llvm",
     "llvmorg",
     "NDK",
     "ninja",
+    "pbxproj",
     "pdfium",
     "vpython",
     "wasm",
-    "xcframework"
+    "xcframework",
+    "xcodeproj",
+    "xcworkspace",
+    "zstd"
   ]
 }
