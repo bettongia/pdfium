@@ -127,6 +127,21 @@ if [ -f "$LIBCXX_BUILD" ] && grep -q 'fvisibility-global-new-delete=force-hidden
     echo "setup: patched libc++/BUILD.gn to remove fvisibility-global-new-delete"
 fi
 
+# Patch: core/fxge/BUILD.gn guards the Apple platform rendering sources (CoreGraphics,
+# CoreText font glue, AGG device driver hooks) behind `if (is_mac)`, which excludes
+# them from iOS builds. The same CoreGraphics/CoreText APIs are available on iOS, so
+# widening the guard to `is_mac || is_ios` is all that is needed. Without this patch
+# the iOS xcframework is missing CFX_GEModule::PlatformIface::Create(),
+# CFX_AggDeviceDriver::InitPlatform/DestroyPlatform/DrawDeviceText, and
+# CFX_Font::ReleasePlatformResource() — undefined-symbol linker errors at app link
+# time. (Confirmed against bblanchon/pdfium-binaries which carries the same patch.)
+FXGE_BUILD="$PDFIUM_SRC/core/fxge/BUILD.gn"
+if [ -f "$FXGE_BUILD" ] && ! grep -q 'is_ios' "$FXGE_BUILD"; then
+    sed -i.bak 's/if (is_mac) {/if (is_mac || is_ios) {/' "$FXGE_BUILD"
+    rm -f "$FXGE_BUILD.bak"
+    echo "setup: patched core/fxge/BUILD.gn to include Apple platform code for iOS (is_mac || is_ios)"
+fi
+
 # Patch: libjpeg_turbo/BUILD.gn asserts use_blink to guard against accidental
 # inclusion in non-Blink builds, but PDFium explicitly depends on it regardless
 # of use_blink. Remove the assertion so iOS and other standalone builds succeed.
