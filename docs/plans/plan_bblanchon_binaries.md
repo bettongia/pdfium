@@ -211,6 +211,11 @@ come from bblanchon. Coordinate with the team before archiving.
 
 ## Implementation plan
 
+> **Branch requirement:** all implementation work must be done on a dedicated
+> Git branch with a worktree (see `docs/plans/README.md`). Do not implement
+> directly on `main`. Branch name: `20260627_plan_bblanchon_binaries` (or
+> similar). Submit a PR when all four platform tests are green.
+
 ### Phase 1 — Desktop (macOS + Linux)
 
 - [ ] Update `Makefile` / `.mk` fragments: rename `PDFIUM_VERSION` →
@@ -292,13 +297,21 @@ come from bblanchon. Coordinate with the team before archiving.
   **Complete**
 - [ ] Coordinate archiving of `pdfium-build` CI pipeline once all four
   platform tests are green
+- [ ] Run the `bettongia:quality-reviewer` agent for a full quality audit
+  before submitting the PR
 
 ### Phase 5 — Future (out of scope for this plan)
 
-- Windows: add `windows-x64` entry to `version_pdfium.json` and
-  `hook/build.dart` using `pdfium-win-x64.tgz`
-- WASM: WASM binary delivery is a separate architecture question
-  (`_document_web.dart` is pending); track in roadmap
+bblanchon provides ready-made binaries for both of these platforms. The
+remaining work is tracked in [`docs/roadmap/0_02.md`](../roadmap/0_02.md):
+
+- **Windows x86_64**: add `windows-x64` entry to `version_pdfium.json` and
+  `hook/build.dart` using `pdfium-win-x64.tgz`. Requires a Windows build
+  environment or CI runner.
+- **WASM**: use `pdfium-wasm.tgz`. Binary delivery is straightforward once
+  bblanchon is adopted, but `lib/src/document/_document_web.dart` (the WASM
+  backend behind the `dart.library.js_interop` conditional import) is still
+  pending. Track in `docs/roadmap/0_02.md`.
 
 ## Reviews
 
