@@ -31,6 +31,7 @@
 --ignore="integration_test_app/ios/RunnerTests/**"
 --ignore="integration_test_app/ios/Flutter/**"
 --ignore="integration_test_app/android/**"
+--ignore="integration_test_app/build/**"
 --ignore="integration_test_app/test/**"
 --ignore="integration_test_app/.idea/**"
 --ignore="integration_test_app/*.iml"

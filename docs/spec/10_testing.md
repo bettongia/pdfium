@@ -47,21 +47,20 @@ why a separate Flutter app is needed.
 ### iOS
 
 iOS support requires `packages/betto_pdfium_ios/` — a companion Flutter plugin
-that carries the PDFium static xcframework as an SPM dependency. Flutter
-auto-discovers it via the integration test app's `pubspec.yaml` path dependency
-and wires it into `FlutterGeneratedPluginSwiftPackage` automatically. No manual
-Xcode steps are required.
+that links the PDFium static xcframework. Flutter auto-discovers it via the
+integration test app's `pubspec.yaml` path dependency and wires it into
+`FlutterGeneratedPluginSwiftPackage` automatically. No manual Xcode steps are
+required.
+
+The xcframework is declared as a **URL-based SPM binary target** in
+`betto_pdfium_ios/ios/betto_pdfium_ios/Package.swift`. SPM downloads and caches
+it directly from the GitHub Release during `flutter pub get` — no manual binary
+fetch is needed for iOS.
 
 **One-time global setup:**
 
 ```bash
 flutter config --enable-swift-package-manager
-```
-
-**Per-clone setup:**
-
-```bash
-make fetch_mobile_binaries   # downloads iOS xcframework + Android .so from GitHub Release
 ```
 
 **Run tests on the default iOS simulator:**
@@ -71,8 +70,9 @@ make ios_test
 ```
 
 This target runs `sync_fixtures` (copies test fixtures into the asset bundle),
-`fetch_mobile_binaries`, and `flutter test integration_test/` on the simulator
-named by `$EMULATOR_IOS` (default: `ios-emulator`).
+`flutter pub get` (which triggers SPM to download the xcframework), and
+`flutter test integration_test/` on the simulator named by `$EMULATOR_IOS`
+(default: `ios-emulator`).
 
 **Create the simulator (one-time):**
 

@@ -405,6 +405,23 @@ sealed class PdfiumResponse {
   const PdfiumResponse();
 }
 
+/// Sent when a command handler throws an unexpected Dart exception.
+///
+/// This response is a diagnostic fallback — it means a bug exists in the
+/// isolate handler code. The [error] and [stack] fields contain the exception
+/// details so they surface in the main isolate's [StateError] rather than
+/// disappearing into the spawned isolate's stderr.
+class PdfiumHandlerErrorResponse extends PdfiumResponse {
+  /// Creates a handler error response.
+  const PdfiumHandlerErrorResponse(this.error, this.stack);
+
+  /// A human-readable description of the exception.
+  final String error;
+
+  /// The stack trace at the point of the exception.
+  final String stack;
+}
+
 /// Sent by the isolate after it has started and initialised PDFium.
 ///
 /// The [commandPort] is used for all subsequent commands.

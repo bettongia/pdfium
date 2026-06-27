@@ -1,6 +1,3 @@
-# iOS xcframework — populated by make fetch_mobile_binaries
-ios/Frameworks/
-
 # Flutter / Dart build outputs
 build/
 .dart_tool/

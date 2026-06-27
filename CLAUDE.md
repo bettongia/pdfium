@@ -74,9 +74,8 @@ packages/
         pdfium_test.dart       # Full mobile test suite (mirrors dart test suite)
       assets/                  # PDF fixtures (populated by make sync_fixtures)
       scripts/
-        fetch_mobile_binaries.sh  # Downloads iOS xcframework + Android .so from release
+        fetch_mobile_binaries.sh  # Downloads Android .so from release (iOS handled by SPM)
       ios/
-        Frameworks/            # gitignored; xcframework populated by fetch_mobile_binaries.sh
       android/
         src/main/jniLibs/      # gitignored; .so files populated by fetch_mobile_binaries.sh
     third_party/pdfium/        # gitignored; populated by make fetch_pdfium
@@ -96,7 +95,6 @@ packages/
       Sources/
         PdfiumAnchor/          # C anchor that references FPDF_InitLibraryWithConfig
         PdfiumIos/             # Swift Flutter plugin stub (BettoPdfiumIosPlugin)
-    ios/Frameworks/            # gitignored; xcframework populated by fetch_mobile_binaries.sh
     pubspec.yaml               # Flutter plugin pubspec (iOS platform only)
 docs/
   plans/                       # Implementation plans (see plans/README.md)
@@ -196,30 +194,32 @@ uses `flutter test integration_test/` and loads PDF fixtures from the Flutter
 asset bundle rather than the filesystem.
 
 iOS support is provided by `packages/betto_pdfium_ios/` — a minimal Flutter
-plugin that carries the PDFium static xcframework as an SPM dependency. Flutter
-auto-discovers it via the integration test app's `pubspec.yaml` path dependency
-and wires it into `FlutterGeneratedPluginSwiftPackage` automatically; no manual
-Xcode steps are required.
+plugin. The PDFium xcframework is declared as a **URL-based SPM binary target**
+in `betto_pdfium_ios/ios/betto_pdfium_ios/Package.swift`; SPM downloads and
+caches it automatically during `flutter pub get` — no manual binary fetch is
+required for iOS. Flutter auto-discovers the plugin via the integration test
+app's path dependency and wires it into `FlutterGeneratedPluginSwiftPackage`
+automatically; no manual Xcode steps are required.
 
 **One-time global setup:**
 ```bash
 flutter config --enable-swift-package-manager
 ```
 
-**Per-clone setup (from repo root):**
+**Per-clone setup (Android only — iOS xcframework is fetched by SPM):**
 ```bash
 make fetch_mobile_binaries
 ```
 
 **Makefile targets:**
 ```bash
-make sync_fixtures          # Copy test/fixtures/ + test/data/ into assets/ (run before mobile tests)
-make fetch_mobile_binaries  # Download iOS xcframework + Android .so from GitHub Release
-make ios_test               # sync_fixtures + fetch_mobile_binaries + flutter test on iOS simulator
-make android_test           # sync_fixtures + fetch_mobile_binaries + flutter test on Android emulator
-make emulator_ios_create    # Create the ios-emulator simulator (one-time)
+make sync_fixtures           # Copy test/fixtures/ + test/data/ into assets/ (run before mobile tests)
+make fetch_mobile_binaries   # Download Android .so from GitHub Release (iOS handled by SPM)
+make ios_test                # sync_fixtures + flutter pub get (SPM fetches xcframework) + flutter test
+make android_test            # sync_fixtures + fetch_mobile_binaries + flutter test on Android emulator
+make emulator_ios_create     # Create the ios-emulator simulator (one-time)
 make emulator_android_create # Create the android AVD (one-time)
-make emulators_stop         # Stop all running emulators
+make emulators_stop          # Stop all running emulators
 ```
 
 Environment variables (set in your shell or `~/.zshrc`):

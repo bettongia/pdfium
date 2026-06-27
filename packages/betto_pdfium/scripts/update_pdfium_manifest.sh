@@ -86,9 +86,9 @@ ANDROID_X64_SHA=$(_sha_for "libpdfium-android-x86_64.so")
 
 # Write version_pdfium.json.
 # The manifest contains both hook-consumed entries (macos-arm64, linux-arm64,
-# linux-x64) and mobile-only entries consumed exclusively by
-# integration_test_app/scripts/fetch_mobile_binaries.sh:
-#   - ios-arm64:     static xcframework for the iOS integration test app
+# linux-x64) and mobile-only entries:
+#   - ios-arm64:     xcframework URL + checksum consumed by Package.swift
+#                    (updated below); SPM downloads it directly — no local copy.
 #   - android-arm64: shared library for the Android integration test app
 #   - android-x64:   shared library for the Android integration test app (x86_64)
 #
@@ -158,6 +158,23 @@ cat > lib/src/pdfium_version.dart <<EOF
 const pdfiumSha = '$SHA';
 EOF
 
+# Rewrite Package.swift binaryTarget with the updated URL and checksum.
+# Flutter copies Package.swift into an ephemeral directory when processing SPM
+# plugins, making local path targets unresolvable. A URL target lets SPM
+# download the xcframework directly from the GitHub Release.
+PACKAGE_SWIFT="../betto_pdfium_ios/ios/betto_pdfium_ios/Package.swift"
+python3 - "$PACKAGE_SWIFT" "$BASE_URL/libpdfium-ios-arm64.xcframework.zip" "$IOS_ARM64_SHA" <<'PYEOF'
+import sys, re
+path, url, checksum = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as f:
+    content = f.read()
+content = re.sub(r'url:\s*"[^"]*"', f'url: "{url}"', content)
+content = re.sub(r'checksum:\s*"[^"]*"', f'checksum: "{checksum}"', content)
+with open(path, 'w') as f:
+    f.write(content)
+print(f'  updated {path}')
+PYEOF
+
 echo "update_pdfium_manifest: done."
 echo "  SHA:                    $SHA"
 echo "  macos-arm64 sha256:     $MACOS_ARM64_SHA"
@@ -170,5 +187,7 @@ echo ""
 echo "Next steps:"
 echo "  make fetch_pdfium          # install binary + headers locally"
 echo "  make ffi_bindings          # if the PDFium public API changed"
-echo "  git add version_pdfium.json lib/src/pdfium_version.dart lib/src/generated/"
+echo "  git add version_pdfium.json lib/src/pdfium_version.dart"
+echo "  git add ../betto_pdfium_ios/ios/betto_pdfium_ios/Package.swift"
+echo "  git add lib/src/generated/"
 echo "  git commit -m 'Bump PDFium to $SHA'"

@@ -131,7 +131,9 @@ fetch_mobile_binaries:
 .PHONY: fetch_mobile_binaries
 
 # ios_test: run the integration test suite on the configured iOS simulator.
-ios_test: sync_fixtures fetch_mobile_binaries
+# The PDFium xcframework is fetched by SPM via the URL binaryTarget in
+# betto_pdfium_ios/Package.swift during flutter pub get; no manual download.
+ios_test: sync_fixtures
 	cd $(BETTO_ITA) && flutter pub get
 	xcrun simctl list | grep "$(EMULATOR_IOS)" | grep -q "Booted" || xcrun simctl boot $(EMULATOR_IOS)
 	open -a Simulator

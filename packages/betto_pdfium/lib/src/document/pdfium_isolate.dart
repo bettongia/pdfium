@@ -105,40 +105,55 @@ void pdfiumIsolateEntryPoint(SendPort bootstrapPort) {
     } else if (bindings == null) {
       // Commands received before initialisation are ignored (should not happen
       // in normal use, since ensureInitialised() awaits PdfiumInitResponse).
-    } else if (message is PdfiumLoadDocumentCommand) {
-      _handleLoadDocument(
-        message,
-        bindings!,
-        openDocuments,
-        nextToken,
-        (t) => nextToken = t,
-      );
-    } else if (message is PdfiumGetMetadataCommand) {
-      _handleGetMetadata(message, bindings!, openDocuments);
-    } else if (message is PdfiumGetDocumentInfoCommand) {
-      _handleGetDocumentInfo(message, bindings!, openDocuments);
-    } else if (message is PdfiumCloseDocumentCommand) {
-      _handleCloseDocument(message, bindings!, openDocuments);
-    } else if (message is PdfiumGetPageCountCommand) {
-      _handleGetPageCount(message, bindings!, openDocuments);
-    } else if (message is PdfiumExtractPageTextCommand) {
-      _handleExtractPageText(message, bindings!, openDocuments);
-    } else if (message is PdfiumExtractPageAnnotationsCommand) {
-      _handleExtractPageAnnotations(message, bindings!, openDocuments);
-    } else if (message is PdfiumGetPageSizeCommand) {
-      _handleGetPageSize(message, bindings!, openDocuments);
-    } else if (message is PdfiumRenderPageCommand) {
-      _handleRenderPage(message, bindings!, openDocuments);
-    } else if (message is PdfiumGetTocCommand) {
-      _handleGetToc(message, bindings!, openDocuments);
-    } else if (message is PdfiumExtractPageImagesCommand) {
-      _handleExtractPageImages(message, bindings!, openDocuments);
-    } else if (message is PdfiumRenderImageCommand) {
-      _handleRenderImage(message, bindings!, openDocuments);
-    } else if (message is PdfiumSearchPageCommand) {
-      _handleSearchPage(message, bindings!, openDocuments);
-    } else if (message is PdfiumGetPageThumbnailCommand) {
-      _handleGetPageThumbnail(message, bindings!, openDocuments);
+    } else {
+      // All non-init commands: dispatch with a top-level catch so that any
+      // unhandled exception surfaces as an error response (instead of
+      // silently killing the isolate and causing 30-second timeouts).
+      try {
+        if (message is PdfiumLoadDocumentCommand) {
+          _handleLoadDocument(
+            message,
+            bindings!,
+            openDocuments,
+            nextToken,
+            (t) => nextToken = t,
+          );
+        } else if (message is PdfiumGetMetadataCommand) {
+          _handleGetMetadata(message, bindings!, openDocuments);
+        } else if (message is PdfiumGetDocumentInfoCommand) {
+          _handleGetDocumentInfo(message, bindings!, openDocuments);
+        } else if (message is PdfiumCloseDocumentCommand) {
+          _handleCloseDocument(message, bindings!, openDocuments);
+        } else if (message is PdfiumGetPageCountCommand) {
+          _handleGetPageCount(message, bindings!, openDocuments);
+        } else if (message is PdfiumExtractPageTextCommand) {
+          _handleExtractPageText(message, bindings!, openDocuments);
+        } else if (message is PdfiumExtractPageAnnotationsCommand) {
+          _handleExtractPageAnnotations(message, bindings!, openDocuments);
+        } else if (message is PdfiumGetPageSizeCommand) {
+          _handleGetPageSize(message, bindings!, openDocuments);
+        } else if (message is PdfiumRenderPageCommand) {
+          _handleRenderPage(message, bindings!, openDocuments);
+        } else if (message is PdfiumGetTocCommand) {
+          _handleGetToc(message, bindings!, openDocuments);
+        } else if (message is PdfiumExtractPageImagesCommand) {
+          _handleExtractPageImages(message, bindings!, openDocuments);
+        } else if (message is PdfiumRenderImageCommand) {
+          _handleRenderImage(message, bindings!, openDocuments);
+        } else if (message is PdfiumSearchPageCommand) {
+          _handleSearchPage(message, bindings!, openDocuments);
+        } else if (message is PdfiumGetPageThumbnailCommand) {
+          _handleGetPageThumbnail(message, bindings!, openDocuments);
+        }
+      } catch (e, stack) {
+        // An unhandled exception in a command handler must never silently kill
+        // the isolate — that produces 30-second timeouts with no diagnostics.
+        // Send a PdfiumHandlerErrorResponse so the main isolate surfaces the
+        // exception message in its StateError instead of just timing out.
+        if (message is PdfiumCommand) {
+          message.replyPort.send(PdfiumHandlerErrorResponse('$e', '$stack'));
+        }
+      }
     }
   });
 
@@ -2802,6 +2817,11 @@ class PdfiumIsolate {
     _commandPort.send(command);
     final response = await replyPort.first;
     replyPort.close();
+    if (response is PdfiumHandlerErrorResponse) {
+      throw StateError(
+        'PdfiumIsolate: handler threw ${response.error}\n${response.stack}',
+      );
+    }
     if (response is! T) {
       throw StateError(
         'PdfiumIsolate: unexpected response type '

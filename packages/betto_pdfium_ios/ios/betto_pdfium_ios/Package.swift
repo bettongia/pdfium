@@ -31,10 +31,13 @@
 //     generated plugin registrant imports. Its dependency on PdfiumAnchor
 //     pulls the anchor (and transitively the xcframework) into the build.
 //
-// The binaryTarget path ../Frameworks/pdfium.xcframework is relative to this
-// Package.swift and resolves to ios/Frameworks/pdfium.xcframework inside the
-// pdfium_ios plugin directory — the gitignored location populated by
-// integration_test_app/scripts/fetch_mobile_binaries.sh.
+// The binaryTarget uses a URL (not a local path) so that SPM downloads the
+// xcframework directly from the GitHub Release. A local path would break
+// because Flutter copies this Package.swift into an ephemeral directory,
+// making relative paths unresolvable.
+//
+// The URL and checksum are updated by `make update_pdfium_manifest` whenever
+// the PDFium SHA is bumped.
 
 import PackageDescription
 
@@ -42,14 +45,14 @@ let package = Package(
     name: "betto_pdfium_ios",
     platforms: [.iOS(.v12)],
     products: [
-        .library(name: "betto-pdfium-ios", targets: ["PdfiumIos"]),
+        .library(name: "betto-pdfium-ios", targets: ["betto_pdfium_ios"]),
     ],
     targets: [
-        // Swift plugin registration target. Flutter's generated plugin
-        // registrant imports this product, pulling PdfiumAnchor and the
-        // xcframework into the link.
+        // Swift plugin registration target. Flutter's generated ObjC
+        // registrant calls `@import betto_pdfium_ios;` so the target name
+        // must match the plugin name exactly.
         .target(
-            name: "PdfiumIos",
+            name: "betto_pdfium_ios",
             dependencies: ["PdfiumAnchor"],
             path: "Sources/PdfiumIos"
         ),
@@ -60,10 +63,12 @@ let package = Package(
             dependencies: ["pdfium_binary"],
             path: "Sources/PdfiumAnchor"
         ),
-        // Binary target: the PDFium static xcframework.
+        // Binary target: PDFium xcframework downloaded directly by SPM.
+        // Updated by `make update_pdfium_manifest`.
         .binaryTarget(
             name: "pdfium_binary",
-            path: "../Frameworks/pdfium.xcframework"
+            url: "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-ios-arm64.xcframework.zip",
+            checksum: "660ab74f31a80b69097e53676425ac083ce86391255c6b20e28d2da8005aabd4"
         ),
     ]
 )
