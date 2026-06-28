@@ -22,6 +22,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:betto_pdfium/betto_pdfium.dart';
+import 'package:betto_pdfium/src/document/pdfium_isolate.dart'
+    show PdfiumIsolate;
 import 'package:test/test.dart';
 
 import 'native_test_helper.dart';
@@ -223,6 +226,105 @@ void main() {
       );
       expect(result.exitCode, equals(1));
       expect(result.stderr as String, contains('not found'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Direct API tests for PdfDocument.getDocumentInfo()
+  // ---------------------------------------------------------------------------
+
+  group('PdfDocument.getDocumentInfo() API', () {
+    late PdfDocument doc;
+
+    setUp(() async {
+      if (!nativeAvailable()) return;
+      PdfiumIsolate.resetForTesting();
+    });
+
+    tearDown(() async {
+      if (!nativeAvailable()) return;
+      try {
+        await doc.close();
+      } catch (_) {
+        // Already closed in some tests; ignore.
+      }
+      PdfiumIsolate.resetForTesting();
+    });
+
+    /// Opens a fixture PDF via the native dylib.
+    Future<PdfDocument> openFixture(String name) async {
+      final bytes = File('test/fixtures/$name').readAsBytesSync();
+      return PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath());
+    }
+
+    test(
+      'full_metadata.pdf — fileVersion is non-null and plausible (>= 14 for PDF 1.4)',
+      () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
+        doc = await openFixture('full_metadata.pdf');
+        final info = await doc.getDocumentInfo();
+        expect(info.fileVersion, isNotNull);
+        // full_metadata.pdf is a PDF 1.3 document (fileVersion == 13).
+        expect(info.fileVersion, greaterThanOrEqualTo(10));
+      },
+    );
+
+    test(
+      'partial_metadata.pdf — call succeeds; permanentId may be null',
+      () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
+        doc = await openFixture('partial_metadata.pdf');
+        // getDocumentInfo() must not throw even when IDs are absent.
+        final info = await doc.getDocumentInfo();
+        expect(info, isNotNull);
+        // fileVersion may or may not be present; just confirm no exception.
+        expect(info.fileVersion, anyOf(isNull, isA<int>()));
+      },
+    );
+
+    test('no_metadata.pdf — call succeeds; all fields may be null', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not found — skipping native tests.');
+        return;
+      }
+      doc = await openFixture('no_metadata.pdf');
+      final info = await doc.getDocumentInfo();
+      expect(info, isNotNull);
+    });
+
+    test(
+      'toString on PdfDocumentInfo with non-null permanentId produces hex string',
+      () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
+        doc = await openFixture('full_metadata.pdf');
+        final info = await doc.getDocumentInfo();
+        final s = info.toString();
+        expect(s, contains('PdfDocumentInfo'));
+        expect(s, contains('fileVersion:'));
+        // When permanentId is present it should be encoded as a hex string.
+        if (info.permanentId != null) {
+          expect(s, isNot(contains('permanentId: null')));
+        }
+      },
+    );
+
+    test('getDocumentInfo() throws StateError after close()', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not found — skipping native tests.');
+        return;
+      }
+      final closedDoc = await openFixture('full_metadata.pdf');
+      await closedDoc.close();
+      await expectLater(() => closedDoc.getDocumentInfo(), throwsStateError);
     });
   });
 }

@@ -42,6 +42,7 @@ import 'pdf_types.dart';
 /// - Offset separator as `'` or `:`.
 class PdfDateParser {
   // Private constructor — all methods are static.
+  // coverage:ignore-next-line
   const PdfDateParser._();
 
   /// Parses [raw] into a [PdfDate].

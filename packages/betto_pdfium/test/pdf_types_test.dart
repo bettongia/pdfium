@@ -1903,4 +1903,709 @@ void main() {
       expect(pi.toString(), contains('images: 0'));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // PdfColor.toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfColor.toString', () {
+    test('contains all components', () {
+      const c = PdfColor(r: 128, g: 64, b: 255, a: 200);
+      final s = c.toString();
+      expect(s, contains('PdfColor'));
+      expect(s, contains('r: 128'));
+      expect(s, contains('g: 64'));
+      expect(s, contains('b: 255'));
+      expect(s, contains('a: 200'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfRect.hashCode and toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfRect', () {
+    const r = PdfRect(left: 10.0, bottom: 20.0, right: 100.0, top: 80.0);
+
+    test('different right makes instances unequal', () {
+      const r2 = PdfRect(left: 10.0, bottom: 20.0, right: 99.0, top: 80.0);
+      expect(r, isNot(equals(r2)));
+    });
+
+    test('different top makes instances unequal', () {
+      const r2 = PdfRect(left: 10.0, bottom: 20.0, right: 100.0, top: 99.0);
+      expect(r, isNot(equals(r2)));
+    });
+
+    test('hashCode is consistent with equality', () {
+      const r2 = PdfRect(left: 10.0, bottom: 20.0, right: 100.0, top: 80.0);
+      expect(r.hashCode, equals(r2.hashCode));
+    });
+
+    test('hashCode differs for different rects (typically)', () {
+      const r2 = PdfRect(left: 0.0, bottom: 0.0, right: 50.0, top: 50.0);
+      expect(r.hashCode, isNot(equals(r2.hashCode)));
+    });
+
+    test('toString contains all four edges', () {
+      final s = r.toString();
+      expect(s, contains('PdfRect'));
+      expect(s, contains('left: 10.0'));
+      expect(s, contains('bottom: 20.0'));
+      expect(s, contains('right: 100.0'));
+      expect(s, contains('top: 80.0'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfQuadPoints equality (non-identical path)
+  // ---------------------------------------------------------------------------
+
+  group('PdfQuadPoints', () {
+    const p1 = PdfPoint(x: 0.0, y: 0.0);
+    const p2 = PdfPoint(x: 1.0, y: 0.0);
+    const p3 = PdfPoint(x: 0.0, y: 1.0);
+    const p4 = PdfPoint(x: 1.0, y: 1.0);
+
+    const base = PdfQuadPoints(p1: p1, p2: p2, p3: p3, p4: p4);
+    const same = PdfQuadPoints(p1: p1, p2: p2, p3: p3, p4: p4);
+    const diff = PdfQuadPoints(
+      p1: PdfPoint(x: 9.0, y: 9.0),
+      p2: p2,
+      p3: p3,
+      p4: p4,
+    );
+
+    test('equal non-identical instances are equal', () {
+      expect(base, equals(same));
+      expect(base.hashCode, equals(same.hashCode));
+    });
+
+    test('different p1 makes instances unequal', () {
+      expect(base, isNot(equals(diff)));
+    });
+
+    test('not equal to a different type', () {
+      // ignore: unrelated_type_equality_checks
+      expect(base == 'not a PdfQuadPoints', isFalse);
+    });
+
+    test('toString contains PdfQuadPoints and all four points', () {
+      final s = base.toString();
+      expect(s, contains('PdfQuadPoints'));
+      expect(s, contains('p1:'));
+      expect(s, contains('p2:'));
+      expect(s, contains('p3:'));
+      expect(s, contains('p4:'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfPopupAnnotation equality and hashCode
+  // ---------------------------------------------------------------------------
+
+  group('PdfPopupAnnotation', () {
+    const rect = PdfRect(left: 10.0, bottom: 20.0, right: 100.0, top: 80.0);
+    const a = PdfPopupAnnotation(rect: rect, flags: 4);
+    const b = PdfPopupAnnotation(rect: rect, flags: 4);
+    const noRect = PdfPopupAnnotation(rect: null, flags: 0);
+
+    test('equal non-identical instances are equal', () {
+      expect(a, equals(b));
+    });
+
+    test('hashCode is consistent with equality', () {
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('different flags makes instances unequal', () {
+      const c = PdfPopupAnnotation(rect: rect, flags: 0);
+      expect(a, isNot(equals(c)));
+    });
+
+    test('null rect vs non-null rect are unequal', () {
+      expect(a, isNot(equals(noRect)));
+    });
+
+    test('identical object equals itself', () {
+      expect(a == a, isTrue);
+    });
+
+    test('not equal to a different type', () {
+      // ignore: unrelated_type_equality_checks
+      expect(a == 'not a popup', isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfMarkupAnnotation equality, hashCode, and toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfMarkupAnnotation', () {
+    const quad = PdfQuadPoints(
+      p1: PdfPoint(x: 10.0, y: 80.0),
+      p2: PdfPoint(x: 90.0, y: 80.0),
+      p3: PdfPoint(x: 10.0, y: 70.0),
+      p4: PdfPoint(x: 90.0, y: 70.0),
+    );
+    const rect = PdfRect(left: 10.0, bottom: 70.0, right: 90.0, top: 80.0);
+    const color = PdfColor(r: 255, g: 255, b: 0, a: 128);
+    const date = PdfDate(raw: 'D:20260101', value: null);
+
+    final base = PdfMarkupAnnotation(
+      pageIndex: 0,
+      subtype: PdfAnnotationType.highlight,
+      quadPoints: const [quad],
+      markedText: 'highlighted text',
+      contents: 'note',
+      author: 'me',
+      rect: rect,
+      color: color,
+      modifiedDate: date,
+      flags: 4,
+    );
+
+    test('equal non-identical instances are equal', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'note',
+        author: 'me',
+        rect: rect,
+        color: color,
+        modifiedDate: date,
+        flags: 4,
+      );
+      expect(base, equals(other));
+      expect(base.hashCode, equals(other.hashCode));
+    });
+
+    test('identical object equals itself', () {
+      expect(base == base, isTrue);
+    });
+
+    test('unequal when pageIndex differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 1,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when subtype differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.underline,
+        quadPoints: const [quad],
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test(
+      'unequal when quadPoints differ (different count — _listEqual length branch)',
+      () {
+        // Empty list: exercises the length-mismatch branch in _listEqual.
+        final other = PdfMarkupAnnotation(
+          pageIndex: 0,
+          subtype: PdfAnnotationType.highlight,
+          quadPoints: const [],
+          flags: 4,
+        );
+        expect(base, isNot(equals(other)));
+      },
+    );
+
+    test(
+      'unequal when quadPoints differ (same count, different content — _listEqual element branch)',
+      () {
+        const diffQuad = PdfQuadPoints(
+          p1: PdfPoint(x: 0.0, y: 0.0),
+          p2: PdfPoint(x: 1.0, y: 0.0),
+          p3: PdfPoint(x: 0.0, y: 1.0),
+          p4: PdfPoint(x: 1.0, y: 1.0),
+        );
+        final other = PdfMarkupAnnotation(
+          pageIndex: 0,
+          subtype: PdfAnnotationType.highlight,
+          quadPoints: const [diffQuad],
+          flags: 4,
+        );
+        expect(base, isNot(equals(other)));
+      },
+    );
+
+    test('unequal when markedText differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'other text',
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when contents differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'different',
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when author differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'note',
+        author: 'other',
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when rect differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'note',
+        author: 'me',
+        rect: const PdfRect(left: 0.0, bottom: 0.0, right: 50.0, top: 50.0),
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when color differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'note',
+        author: 'me',
+        rect: rect,
+        color: const PdfColor(r: 0, g: 0, b: 255, a: 255),
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when modifiedDate differs', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'note',
+        author: 'me',
+        rect: rect,
+        color: color,
+        modifiedDate: const PdfDate(raw: 'D:20260202', value: null),
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('unequal when flags differ', () {
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [quad],
+        markedText: 'highlighted text',
+        contents: 'note',
+        author: 'me',
+        rect: rect,
+        color: color,
+        modifiedDate: date,
+        flags: 0,
+      );
+      expect(base, isNot(equals(other)));
+    });
+
+    test('not equal to a different type', () {
+      const other = PdfTextAnnotation(pageIndex: 0, flags: 4);
+      expect(base == other, isFalse);
+    });
+
+    test('toString contains type name, subtype, and quadPoints count', () {
+      final s = base.toString();
+      expect(s, contains('PdfMarkupAnnotation'));
+      expect(s, contains('pageIndex: 0'));
+      expect(s, contains('highlight'));
+      expect(s, contains('1 quads'));
+    });
+
+    test('underline subtype is preserved in toString', () {
+      final underline = PdfMarkupAnnotation(
+        pageIndex: 1,
+        subtype: PdfAnnotationType.underline,
+        quadPoints: const [quad, quad],
+        flags: 0,
+      );
+      expect(underline.toString(), contains('underline'));
+      expect(underline.toString(), contains('2 quads'));
+    });
+
+    test('squiggly subtype is constructable and reported in toString', () {
+      final squiggly = PdfMarkupAnnotation(
+        pageIndex: 2,
+        subtype: PdfAnnotationType.squiggly,
+        quadPoints: const [],
+        flags: 0,
+      );
+      expect(squiggly.toString(), contains('squiggly'));
+    });
+
+    test('strikeout subtype is constructable and reported in toString', () {
+      final strikeout = PdfMarkupAnnotation(
+        pageIndex: 3,
+        subtype: PdfAnnotationType.strikeout,
+        quadPoints: const [quad],
+        flags: 0,
+      );
+      expect(strikeout.toString(), contains('strikeout'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfUnknownAnnotation.toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfUnknownAnnotation.toString', () {
+    test('contains type name, pageIndex, and rawSubtype', () {
+      const a = PdfUnknownAnnotation(pageIndex: 5, rawSubtype: 42, flags: 0);
+      final s = a.toString();
+      expect(s, contains('PdfUnknownAnnotation'));
+      expect(s, contains('pageIndex: 5'));
+      expect(s, contains('rawSubtype: 42'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfPageAnnotations.toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfPageAnnotations.toString', () {
+    test('empty annotations list reports count 0', () {
+      const pa = PdfPageAnnotations(pageIndex: 2, annotations: []);
+      final s = pa.toString();
+      expect(s, contains('PdfPageAnnotations'));
+      expect(s, contains('pageIndex: 2'));
+      expect(s, contains('annotations: 0'));
+    });
+
+    test('non-empty annotations list reports correct count', () {
+      const pa = PdfPageAnnotations(
+        pageIndex: 0,
+        annotations: [
+          PdfUnknownAnnotation(pageIndex: 0, rawSubtype: 1, flags: 0),
+          PdfUnknownAnnotation(pageIndex: 0, rawSubtype: 2, flags: 0),
+        ],
+      );
+      expect(pa.toString(), contains('annotations: 2'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfMetadata.toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfMetadata.toString', () {
+    test('fully-populated instance contains all field names', () {
+      const date = PdfDate(raw: 'D:20260101', value: null);
+      const meta = PdfMetadata(
+        title: 'My Doc',
+        author: 'Alice',
+        subject: 'Testing',
+        keywords: 'test, dart',
+        creator: 'TestApp',
+        producer: 'PDFLib',
+        creationDate: date,
+        modDate: date,
+      );
+      final s = meta.toString();
+      expect(s, contains('PdfMetadata'));
+      expect(s, contains('title: My Doc'));
+      expect(s, contains('author: Alice'));
+      expect(s, contains('subject: Testing'));
+      expect(s, contains('keywords: test, dart'));
+      expect(s, contains('creator: TestApp'));
+      expect(s, contains('producer: PDFLib'));
+      expect(s, contains('creationDate:'));
+      expect(s, contains('modDate:'));
+    });
+
+    test('null fields appear as null in output', () {
+      const meta = PdfMetadata();
+      final s = meta.toString();
+      expect(s, contains('title: null'));
+      expect(s, contains('author: null'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfTextExtractorConfig.toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfTextExtractorConfig.toString', () {
+    test('default config shows scannedPageRatio 0.5', () {
+      const config = PdfTextExtractorConfig();
+      final s = config.toString();
+      expect(s, contains('PdfTextExtractorConfig'));
+      expect(s, contains('scannedPageRatio: 0.5'));
+    });
+
+    test('custom scannedPageRatio appears in output', () {
+      const config = PdfTextExtractorConfig(scannedPageRatio: 0.8);
+      expect(config.toString(), contains('0.8'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfDocumentInfo constructor and toString
+  // ---------------------------------------------------------------------------
+
+  group('PdfDocumentInfo', () {
+    test('constructor with all null fields', () {
+      const info = PdfDocumentInfo();
+      expect(info.fileVersion, isNull);
+      expect(info.permanentId, isNull);
+      expect(info.changingId, isNull);
+    });
+
+    test('constructor stores fileVersion', () {
+      const info = PdfDocumentInfo(fileVersion: 17);
+      expect(info.fileVersion, equals(17));
+    });
+
+    test('toString with null IDs does not throw', () {
+      const info = PdfDocumentInfo(fileVersion: 14);
+      final s = info.toString();
+      expect(s, contains('PdfDocumentInfo'));
+      expect(s, contains('fileVersion: 14'));
+      expect(s, contains('permanentId: null'));
+      expect(s, contains('changingId: null'));
+    });
+
+    test('toString with non-null permanentId produces hex string', () {
+      // 16 bytes: 0x00 through 0x0F.
+      final id = Uint8List.fromList(List<int>.generate(16, (i) => i));
+      final info = PdfDocumentInfo(permanentId: id);
+      final s = info.toString();
+      expect(s, contains('PdfDocumentInfo'));
+      // The hex encoding of [0,1,2,...,15] starts with "000102..."
+      expect(s, contains('permanentId: 000102'));
+    });
+
+    test('toString with non-null changingId produces hex string', () {
+      final id = Uint8List.fromList(List<int>.generate(16, (i) => 255 - i));
+      final info = PdfDocumentInfo(changingId: id);
+      final s = info.toString();
+      expect(s, contains('changingId: fffefdfcfb'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfColor equality — exercises == operator field comparisons (lines 354-356)
+  // ---------------------------------------------------------------------------
+
+  group('PdfColor equality', () {
+    test('non-identical equal instances are equal', () {
+      const a = PdfColor(r: 1, g: 2, b: 3, a: 4);
+      const b = PdfColor(r: 1, g: 2, b: 3, a: 4);
+      // Explicitly verify via ==, not identical(), to hit the field-comparison
+      // branch inside operator==.
+      // ignore: unrelated_type_equality_checks
+      expect(a == b, isTrue);
+    });
+
+    test('instances with different g are unequal', () {
+      const a = PdfColor(r: 1, g: 2, b: 3, a: 4);
+      const b = PdfColor(r: 1, g: 99, b: 3, a: 4);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('instances with different b are unequal', () {
+      const a = PdfColor(r: 1, g: 2, b: 3, a: 4);
+      const b = PdfColor(r: 1, g: 2, b: 99, a: 4);
+      expect(a, isNot(equals(b)));
+    });
+
+    test('instances with different a are unequal', () {
+      const a = PdfColor(r: 1, g: 2, b: 3, a: 4);
+      const b = PdfColor(r: 1, g: 2, b: 3, a: 99);
+      expect(a, isNot(equals(b)));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfQuadPoints deeper field equality (lines 468-470 — p2, p3, p4)
+  // ---------------------------------------------------------------------------
+
+  group('PdfQuadPoints field equality', () {
+    const origin = PdfPoint(x: 0, y: 0);
+    const p = PdfPoint(x: 1, y: 1);
+
+    test('different p2 makes instances unequal', () {
+      const a = PdfQuadPoints(
+        p1: origin,
+        p2: PdfPoint(x: 1, y: 0),
+        p3: origin,
+        p4: origin,
+      );
+      const b = PdfQuadPoints(
+        p1: origin,
+        p2: PdfPoint(x: 99, y: 0),
+        p3: origin,
+        p4: origin,
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('different p3 makes instances unequal', () {
+      const a = PdfQuadPoints(
+        p1: origin,
+        p2: origin,
+        p3: PdfPoint(x: 1, y: 0),
+        p4: origin,
+      );
+      const b = PdfQuadPoints(
+        p1: origin,
+        p2: origin,
+        p3: PdfPoint(x: 99, y: 0),
+        p4: origin,
+      );
+      expect(a, isNot(equals(b)));
+    });
+
+    test('different p4 makes instances unequal', () {
+      const a = PdfQuadPoints(p1: origin, p2: origin, p3: origin, p4: p);
+      const b = PdfQuadPoints(
+        p1: origin,
+        p2: origin,
+        p3: origin,
+        p4: PdfPoint(x: 99, y: 0),
+      );
+      expect(a, isNot(equals(b)));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // PdfTextAnnotation equality, hashCode, and toString (lines 595-624)
+  // ---------------------------------------------------------------------------
+
+  group('PdfTextAnnotation', () {
+    const rect = PdfRect(left: 0, bottom: 0, right: 10, top: 10);
+    const color = PdfColor(r: 255, g: 0, b: 0, a: 255);
+    const popup = PdfPopupAnnotation(flags: 0);
+
+    PdfTextAnnotation makeAnnot({
+      int pageIndex = 0,
+      String? contents = 'note',
+      String? author = 'Alice',
+      PdfRect? annotRect,
+      PdfColor? annotColor,
+      PdfDate? modifiedDate,
+      int flags = 0,
+      PdfPopupAnnotation? annotPopup,
+    }) => PdfTextAnnotation(
+      pageIndex: pageIndex,
+      contents: contents,
+      author: author,
+      rect: annotRect ?? rect,
+      color: annotColor ?? color,
+      modifiedDate: modifiedDate,
+      flags: flags,
+      popup: annotPopup,
+    );
+
+    test('equal non-identical instances are equal', () {
+      final a = makeAnnot();
+      final b = makeAnnot();
+      expect(a, equals(b));
+    });
+
+    test('equal instances share the same hashCode', () {
+      final a = makeAnnot();
+      final b = makeAnnot();
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('identical instance equals itself', () {
+      final a = makeAnnot();
+      expect(a, equals(a));
+    });
+
+    test('different pageIndex makes instances unequal', () {
+      expect(makeAnnot(pageIndex: 0), isNot(equals(makeAnnot(pageIndex: 1))));
+    });
+
+    test('different contents makes instances unequal', () {
+      expect(makeAnnot(contents: 'a'), isNot(equals(makeAnnot(contents: 'b'))));
+    });
+
+    test('different author makes instances unequal', () {
+      expect(
+        makeAnnot(author: 'Alice'),
+        isNot(equals(makeAnnot(author: 'Bob'))),
+      );
+    });
+
+    test('different rect makes instances unequal', () {
+      const r2 = PdfRect(left: 1, bottom: 1, right: 2, top: 2);
+      expect(makeAnnot(), isNot(equals(makeAnnot(annotRect: r2))));
+    });
+
+    test('different color makes instances unequal', () {
+      const c2 = PdfColor(r: 0, g: 255, b: 0, a: 255);
+      expect(makeAnnot(), isNot(equals(makeAnnot(annotColor: c2))));
+    });
+
+    test('different modifiedDate makes instances unequal', () {
+      const d1 = PdfDate(raw: 'D:20260101', value: null);
+      const d2 = PdfDate(raw: 'D:20250101', value: null);
+      expect(
+        makeAnnot(modifiedDate: d1),
+        isNot(equals(makeAnnot(modifiedDate: d2))),
+      );
+    });
+
+    test('different flags makes instances unequal', () {
+      expect(makeAnnot(flags: 0), isNot(equals(makeAnnot(flags: 1))));
+    });
+
+    test('null popup vs non-null popup are unequal', () {
+      expect(
+        makeAnnot(annotPopup: null),
+        isNot(equals(makeAnnot(annotPopup: popup))),
+      );
+    });
+
+    test('not equal to a different type', () {
+      final a = makeAnnot();
+      expect(a, isNot(equals('not an annotation')));
+    });
+
+    test('toString contains type name, pageIndex, and contents', () {
+      final a = makeAnnot(pageIndex: 7, contents: 'my note');
+      final s = a.toString();
+      expect(s, contains('PdfTextAnnotation'));
+      expect(s, contains('pageIndex: 7'));
+      expect(s, contains('my note'));
+    });
+  });
 }

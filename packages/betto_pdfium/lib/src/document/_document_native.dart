@@ -61,6 +61,10 @@ class PdfDocumentImpl {
       Finalizer<_FinalizerToken>((token) async {
         // Best-effort: send close command. Errors are silently swallowed —
         // we are in a finalizer callback, not a user-controlled call site.
+        // coverage:ignore-start
+        // The Finalizer callback is invoked by the GC when a PdfDocumentImpl
+        // is collected without close() being called. This is non-deterministic
+        // and cannot be reliably triggered in a test suite.
         try {
           await token.isolate.send<PdfiumCloseDocumentResponse>(
             (replyPort) =>
@@ -69,6 +73,7 @@ class PdfDocumentImpl {
         } catch (_) {
           // Ignore — the isolate may no longer be running.
         }
+        // coverage:ignore-end
       });
 
   /// Loads a PDF document from raw [bytes].
