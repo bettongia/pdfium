@@ -15,11 +15,13 @@
 name: betto_pdfium_ios
 description: >
   Flutter iOS companion plugin for betto_pdfium. Carries the PDFium static
-  xcframework SPM dependency so that DynamicLibrary.process() can resolve
-  FPDF_* symbols at runtime in any Flutter app using betto_pdfium on iOS.
-  No method channels or platform interaction.
+  xcframework SPM dependency so that DynamicLibrary.process() can resolve FPDF_*
+  symbols at runtime in any Flutter app using betto_pdfium on iOS. No method
+  channels or platform interaction.
 publish_to: none
-version: 0.0.1
+version: 0.1.0-dev.1
+repository: https://github.com/bettongia/pdf_widgets
+issue_tracker: https://github.com/bettongia/pdf_widgets/issues
 
 environment:
   sdk: ^3.12.0
