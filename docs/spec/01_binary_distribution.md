@@ -249,8 +249,8 @@ Run `make update_pdfium_manifest` after `make repack_ios_xcframework` to update
 and places the files in:
 
 ```
-android/src/main/jniLibs/arm64-v8a/libpdfium.so
-android/src/main/jniLibs/x86_64/libpdfium.so
+android/app/src/main/jniLibs/arm64-v8a/libpdfium.so
+android/app/src/main/jniLibs/x86_64/libpdfium.so
 ```
 
 Flutter's Gradle build picks up `jniLibs/` automatically. At runtime,
