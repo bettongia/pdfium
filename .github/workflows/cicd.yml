@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: packages/betto_pdfium/.dart_tool/betto_pdfium
-          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/PDFIUM_VERSION') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
 
       - run: make cicd
 
@@ -71,7 +71,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: packages/betto_pdfium/.dart_tool/betto_pdfium
-          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/PDFIUM_VERSION') }}
+          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
 
       - name: dart pub get
         run: cd packages/betto_pdfium && dart pub get
