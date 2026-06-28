@@ -43,10 +43,23 @@ problems in one migration.
   in the `bettongia/pdfium` GitHub Releases, assembled from bblanchon's
   device + simulator tarballs by `make repack_ios_xcframework`. Package.swift
   points to this hosted artifact.
-- [x] **Version identifier**: bblanchon uses Chromium build numbers
-  (`chromium/7906`), not PDFium git SHAs. `version_pdfium.json` gains a
-  `bblanchon_build` field; `pdfiumSha` in `pdfium_version.dart` is renamed
-  `pdfiumVersion` and holds the `chromium/NNNN` string.
+- [x] **Version identifier**: bblanchon uses Chromium build numbers, not PDFium
+  git SHAs. Two separate identifiers are maintained: `pdfiumVersion =
+  'chromium/7906'` (display/logging only, in `pdfium_version.dart`) and
+  `bblanchonBuild = '7906'` (slash-free, used as the
+  `.dart_tool/betto_pdfium/<key>/` cache-directory path segment in the hook,
+  isolate, and test helper). The slash in `chromium/7906` would otherwise
+  silently create a broken nested directory.
+- [x] **iOS load strategy**: keep `DynamicLibrary.process()` in the iOS branch
+  of `_openLibrary()`. A properly embedded dynamic framework's symbols are in
+  the process image; `process()` is simpler and more robust than a hardcoded
+  `$execDir/Frameworks/...` path. Only switch if a device test proves
+  `process()` fails.
+- [x] **Supply-chain trade-off**: adopting bblanchon trades a pipeline we
+  control for a third-party release cadence. SHA-256 pinning in
+  `version_pdfium.json` mitigates tampering; availability risk (bblanchon stops
+  publishing) is accepted given the maintenance win. This is a documented,
+  conscious decision — no mirroring step added.
 - [x] **FFI headers source**: the `include/*.h` headers are identical across
   all bblanchon platform tarballs. `make fetch_pdfium` extracts them from
   `pdfium-linux-x64.tgz` (smallest non-WASM tarball).
@@ -113,17 +126,14 @@ Releases page under a tag matching the bblanchon version
 
 ### `_openLibrary()` on iOS
 
-Currently calls `DynamicLibrary.process()` (static link). With a dynamic
-framework embedded by Xcode at `<App>.app/Frameworks/pdfium.framework/pdfium`,
-change to:
-
-```dart
-// iOS: PDFium is an embedded dynamic framework
-final execDir = File(Platform.resolvedExecutable).parent.path;
-return ffi.DynamicLibrary.open(
-    '$execDir/Frameworks/pdfium.framework/pdfium',
-);
-```
+**No change needed.** The current iOS branch calls `DynamicLibrary.process()`.
+When Xcode embeds a dynamic `.framework` (from a binaryTarget xcframework),
+it links it into the process image at launch — all exported PDFium symbols are
+therefore reachable via `process()` exactly as they were with the old static
+archive. `process()` is retained: it is simpler, makes no assumptions about the
+bundle layout, and is consistent with the "Xcode auto-embeds — no anchor
+workaround needed" rationale. Only switch to an explicit path if a device test
+proves `process()` cannot locate the symbols.
 
 ### SPM package changes
 
@@ -200,8 +210,20 @@ by `Package.swift`); Windows and WASM are future work.
 
 ### pdfium_version.dart
 
-Rename `pdfiumSha` → `pdfiumVersion`; value becomes `'chromium/7906'`.
-Update all references in `pdfium_isolate.dart` log messages.
+Two constants replace `pdfiumSha`:
+
+```dart
+/// Display/logging identifier — human-readable bblanchon release tag.
+const pdfiumVersion = 'chromium/7906';
+
+/// Slash-free build number used as a filesystem path segment (cache dir key).
+const bblanchonBuild = '7906';
+```
+
+`bblanchonBuild` is used wherever the old `pdfiumSha` was interpolated into
+a path: `hook/build.dart` `_cacheDirectory()`, `pdfium_isolate.dart` (lines
+~2907, ~2943), and `test/native_test_helper.dart` (lines ~56, ~64).
+`pdfiumVersion` is used only in log messages and the `pdfiumSha` doc comment.
 
 ### pdfium-build pipeline
 
@@ -229,12 +251,22 @@ come from bblanchon. Coordinate with the team before archiving.
   `CodeAsset`
 - [ ] Update `version_pdfium.json` schema (add `bblanchon_build`, add
   `lib_path`, rename `pdfium_sha`) for macOS and Linux entries with bblanchon
-  URLs and freshly computed SHA256s
-- [ ] Rename `pdfiumSha` → `pdfiumVersion` in `pdfium_version.dart`; update
-  all references in `pdfium_isolate.dart`
-- [ ] Update `make update_pdfium_manifest` to download bblanchon tarballs,
-  compute SHA256s, and write `version_pdfium.json`
-- [ ] Update `make check_pdfium_version` to compare against `BBLANCHON_BUILD`
+  URLs and freshly computed SHA256s; verify SHA-256 on each `.tgz` before
+  extraction; use `.part` → verify → atomic rename discipline in the hook
+- [ ] Replace `pdfiumSha` with two constants in `pdfium_version.dart`:
+  `pdfiumVersion = 'chromium/NNNN'` (display) and `bblanchonBuild = 'NNNN'`
+  (slash-free cache-key); update all path-interpolation references in
+  `pdfium_isolate.dart`, `hook/build.dart` `_cacheDirectory()`, and
+  `test/native_test_helper.dart`
+- [ ] Update `scripts/update_pdfium_manifest.sh` to download bblanchon
+  tarballs, compute SHA256s, and write `version_pdfium.json`
+- [ ] Update `scripts/check_pdfium_version.sh` to compare against
+  `BBLANCHON_BUILD`
+- [ ] Update `hook/build.dart` library doc comment (lines 24–28 claim
+  "no extraction step needed" — update to describe tgz extraction)
+- [ ] Add tests for: new manifest schema parsing (`bblanchon_build`, `lib_path`
+  fields), tgz-extraction helper error paths, and renamed constants — all
+  pure-Dart paths that must not depend on a downloaded binary
 - [ ] Regenerate FFI bindings with `make ffi_bindings` using headers from the
   bblanchon tarball; commit any changed `pdfium_bindings.dart`
 - [ ] Run `make test` — all desktop tests pass
@@ -267,14 +299,19 @@ come from bblanchon. Coordinate with the team before archiving.
   7. Zip into `pdfium.xcframework.zip`; print SHA256
   8. Upload to `bettongia/pdfium` GitHub Releases tagged
      `bblanchon-chromium-<BUILD>`
+- [ ] Spike `make repack_ios_xcframework` in isolation before wiring into
+  `update_pdfium_manifest` — confirm `xcodebuild -create-xcframework` accepts
+  the `Info.plist` (`CFBundleExecutable`, `CFBundleIdentifier`,
+  `MinimumOSVersion`, `CFBundleSupportedPlatforms`) and that
+  `LC_BUILD_VERSION` in the dylib matches `MinimumOSVersion`
 - [ ] Update `packages/betto_pdfium_ios/ios/betto_pdfium_ios/Package.swift`:
-  - Remove `PdfiumAnchor` target and `Sources/PdfiumAnchor/` directory
+  - Remove `PdfiumAnchor` target (leave product name `betto-pdfium-ios`
+    unchanged — Flutter imports the target, not the product)
   - Update `binaryTarget` URL and checksum to the new xcframework
-  - Product name updated if needed (was `betto-pdfium-ios`)
 - [ ] Remove `Sources/PdfiumAnchor/` directory and its source files
-- [ ] Update `_openLibrary()` in `pdfium_isolate.dart` iOS branch:
-  change from `DynamicLibrary.process()` to path-based
-  `DynamicLibrary.open('$execDir/Frameworks/pdfium.framework/pdfium')`
+- [ ] No change to `_openLibrary()` iOS branch — keep `DynamicLibrary.process()`
+  (embedded dynamic framework symbols are in the process image; `process()` is
+  simpler and more robust than a hardcoded path)
 - [ ] Update `hook/build.dart` iOS comment to reflect dynamic library
 - [ ] Update `version_pdfium.json`: remove `ios-arm64` entry (xcframework is
   now referenced only from `Package.swift`, not from the hook manifest)
@@ -293,6 +330,8 @@ come from bblanchon. Coordinate with the team before archiving.
   bblanchon version-bump workflow
 - [ ] Update `docs/spec/01_binary_distribution.md` to document bblanchon as
   the upstream source
+- [ ] Update `docs/spec/11_releasing.md` — remove/replace the two-commit
+  `PDFIUM_VERSION` SHA-bump workflow with the new `BBLANCHON_BUILD` bump flow
 - [ ] Update roadmap `0_01.md` overall status for cross-platform pipeline to
   **Complete**
 - [ ] Coordinate archiving of `pdfium-build` CI pipeline once all four
@@ -331,6 +370,183 @@ Key findings:
   PDFium's public API is stable
 - `PdfiumHandlerErrorResponse` (added mid-session for diagnostics) is worth
   keeping permanently
+
+### Review 2: 2026-06-27
+
+Independent review against the live codebase (`hook/build.dart`,
+`version_pdfium.json`, `pdfium_isolate.dart`, `pdfium_version.dart`,
+`native_test_helper.dart`, `Package.swift`, roadmap `0_01.md`, spec).
+
+**Problem Statement Assessment**
+
+The problem is real, well-diagnosed, and worth solving. The iOS dead-stripping
+failure is a confirmed root-cause (`dlsym(RTLD_DEFAULT, FPDF_GetMetaText):
+symbol not found`), not a hypothesis, and the 258 MB → 6.5 MB size delta alone
+justifies the migration. Adopting a community-maintained binary source removes
+an entire bespoke CI pipeline and four classes of recurring maintenance
+(GN patching, Clang compatibility, upstream API tracking, per-platform
+packaging). Roadmap `0_01.md` already names this plan as the chosen approach, so
+there is no roadmap conflict — alignment is explicit. This is a strong,
+well-motivated plan.
+
+One strategic caveat worth recording: this trades a pipeline we control for a
+third-party release cadence we do not. The plan should note the supply-chain
+implication — if bblanchon stops publishing or changes artifact layout, we have
+no fallback. The SHA-256 pinning in `version_pdfium.json` mitigates tampering
+but not availability. This is an acceptable trade given the maintenance win, but
+it should be a conscious, documented decision rather than an implicit one.
+
+**Proposed Solution Assessment**
+
+The investigation is thorough and the four-phase split (desktop → Android → iOS
+→ cleanup) is sensibly ordered by risk. The dynamic-framework approach for iOS
+is clearly the right call and eliminates the dead-strip problem class entirely.
+However, the implementation plan has several concrete gaps that will cause the
+work to break if followed literally — see Risk & Edge Cases.
+
+**Architecture Fit**
+
+The migration fits the existing native-assets hook + SPM-plugin architecture
+well. The conditional-import / pure-Dart layer boundary is untouched (no Flutter
+or `dart:ui` leaks into core — the iOS framework path lives only in the
+`Platform.isIOS`-gated branch of `pdfium_isolate.dart`, which is already
+platform code). Deleting `PdfiumAnchor` simplifies the SPM chain from three
+targets to two. No library-architecture concerns.
+
+**Risk & Edge Cases**
+
+1. **`pdfiumVersion` value `'chromium/7906'` breaks the cache-directory key.**
+   This is the most serious gap. `pdfiumSha` is not just a log string — it is
+   used as a **path segment** in three places:
+   - `pdfium_isolate.dart` lines 2907 and 2943
+     (`.dart_tool/betto_pdfium/$pdfiumSha/$libName`)
+   - `native_test_helper.dart` lines 56 and 64 (same pattern)
+   - `hook/build.dart` `_cacheDirectory()` (`packageRoot.resolve(
+     '.dart_tool/betto_pdfium/$sha/')`)
+
+   A value containing a slash (`chromium/7906`) will create a broken nested
+   directory `.dart_tool/betto_pdfium/chromium/7906/` and the runtime loader,
+   test helper, and hook will disagree on the path unless all are updated in
+   lockstep. The plan must either (a) keep the cache key slash-free (e.g. store
+   the build number `7906` separately and key the cache on that), or (b)
+   sanitise the slash. Decide this explicitly.
+
+2. **`test/native_test_helper.dart` is not in the implementation checklist.**
+   It imports `pdfiumSha` (lines 56, 64). The Phase 1 rename step lists only
+   `pdfium_version.dart` and `pdfium_isolate.dart`. This file will fail to
+   compile after the rename. Add it to the checklist.
+
+3. **The iOS `_openLibrary()` change contradicts the SPM embedding model.**
+   The current iOS branch uses `DynamicLibrary.process()` (line 2891). The plan
+   replaces it with a hardcoded
+   `'$execDir/Frameworks/pdfium.framework/pdfium'` path. But the investigation
+   also states (correctly) that with a dynamic-framework binaryTarget, "Xcode
+   automatically embeds them in the app bundle — no force-load flags required."
+   When a framework is embedded and linked, its symbols are present in the
+   process image and `DynamicLibrary.process()` should continue to work — and is
+   far more robust than a hardcoded relative path that assumes a specific bundle
+   layout (`Platform.resolvedExecutable` on iOS points into the `.app`, but the
+   `Frameworks/` subpath and the absence of versioned-framework nesting are
+   assumptions). The macOS branch already prefers
+   `DynamicLibrary.open('pdfium.framework/pdfium')` with a fallback chain.
+   Recommend: keep `DynamicLibrary.process()` for iOS (simplest, matches the
+   "no anchor needed" claim) and only fall back to an explicit path if a
+   device test proves `process()` fails. Resolve this before implementation —
+   the two statements in the plan are currently inconsistent.
+
+4. **No new or updated tests are specified, against a 90% coverage gate.**
+   Phase 1 changes the `version_pdfium.json` schema (new `bblanchon_build`,
+   `lib_path`; renamed `pdfium_sha`) and the hook's manifest-reading code
+   (`_readManifestSha` reads `pdfium_sha`; `_loadPlatformManifest` reads
+   `platforms`). These are testable pure-Dart paths. The plan must state which
+   tests are added/updated for: the new manifest schema parsing, the tgz
+   extraction helper, and the renamed constant. "Run `make test`" is not the
+   same as "add tests for changed code paths." Note also the coupling recorded
+   in agent memory: desktop coverage drops to a pure-Dart ceiling when the dylib
+   is absent, so the schema/parsing tests must not depend on a downloaded
+   binary.
+
+5. **tgz extraction shells out to `tar` — platform and sandbox assumptions.**
+   The helper `tar -xzf ... --strip-components=1` assumes GNU/BSD `tar` with
+   `-z` support on every build host. macOS and Linux both have this, but the
+   plan should (a) check the `tar` exit code and surface a clear error, and
+   (b) confirm extraction happens to a temp path with the same crash-safe
+   atomic-rename discipline the current hook uses for direct downloads
+   (`.part` → verify SHA → rename). Extracting in place would regress the
+   concurrency/crash-safety guarantees documented in `hook/build.dart`. Note the
+   SHA-256 is now over the `.tgz`, so verification must happen on the tarball
+   *before* extraction, then the extracted lib is trusted — document this
+   ordering.
+
+6. **`hook/build.dart` library doc comment is stale after this change.** Lines
+   24–28 assert "binaries are published as direct `.dylib`/`.so` files (not
+   archives) ... no extraction step is needed." This becomes false. The iOS and
+   Android doc-comment sections (lines 46–57) also describe the old static-link
+   model. These are not in the checklist; add a doc-comment-update item.
+
+7. **`make repack_ios_xcframework` correctness depends on details the plan
+   asserts but has not executed.** Building a `.framework` from a bare dylib
+   requires a correct `Info.plist` (`CFBundleExecutable`,
+   `CFBundleIdentifier`, `MinimumOSVersion`, `CFBundleSupportedPlatforms`) and a
+   matching `xcframework` `Info.plist`. `xcodebuild -create-xcframework` is
+   picky and will reject frameworks with missing keys or a mismatched
+   `MinimumOSVersion` vs the dylib's `LC_BUILD_VERSION`. The simulator slice
+   must also be marked as a simulator-platform variant. This step carries the
+   most execution risk in the whole plan and has not been dry-run. Recommend
+   spiking this target in isolation early in Phase 3 before wiring it into
+   `update_pdfium_manifest`.
+
+8. **Spec coverage is incomplete.** Phase 4 updates
+   `docs/spec/01_binary_distribution.md`, but `docs/spec/11_releasing.md`
+   describes the SHA-bump / release workflow and almost certainly references the
+   two-commit `PDFIUM_VERSION` flow that this plan replaces with
+   `BBLANCHON_BUILD`. Audit `11_releasing.md` and add it to the Phase 4
+   checklist. Also confirm whether `02_pdfium_isolate.md` documents the iOS
+   `DynamicLibrary.process()` load strategy (it may need updating per point 3).
+
+9. **`Package.swift` product name.** The plan flags "product name updated if
+   needed (was `betto-pdfium-ios`)." It does not need changing — Flutter's
+   registrant imports the *target* `betto_pdfium_ios`, not the product. Leave
+   the product name alone to avoid breaking plugin discovery. Make this a
+   definite decision rather than a "if needed."
+
+10. **`check_pdfium_version` / scripts are shell scripts, not Makefile inline.**
+    The real targets delegate to `scripts/fetch_pdfium.sh`,
+    `scripts/check_pdfium_version.sh`, `scripts/update_pdfium_manifest.sh`. The
+    plan's Makefile table describes behaviour but the edits land in those shell
+    scripts. Name them in the checklist so the implementer edits the right
+    files.
+
+**Recommendations**
+
+The plan is close to ready but should not proceed to implementation until the
+following are resolved, because each will cause a literal-follow break:
+
+- Decide the cache-key strategy (point 1) and add `native_test_helper.dart` to
+  the rename checklist (point 2). These are correctness blockers.
+- Reconcile the iOS `_openLibrary()` approach with the SPM embedding model
+  (point 3) — prefer keeping `DynamicLibrary.process()`.
+- Add a concrete test plan for the schema, manifest-parsing, and tgz-extraction
+  changes (point 4).
+- Add `11_releasing.md` and the stale `hook/build.dart` doc comment to Phase 4
+  (points 6, 8).
+
+The remaining points (5, 7, 9, 10) are refinements that improve robustness and
+should be folded in but do not change the shape of the plan. Once points 1–4
+and 6/8 are addressed in the plan text, this is ready for implementation. I am
+moving the status to `Questions` pending the blocking decisions below.
+
+**Open questions — resolved**
+
+- [x] Cache-directory key: use `bblanchonBuild = '7906'` (slash-free) for path
+      interpolation; `pdfiumVersion = 'chromium/7906'` for display/logging only.
+      Updated in plan and Phase 1 checklist.
+- [x] iOS load strategy: keep `DynamicLibrary.process()`. Updated in
+      investigation section and Phase 3 checklist.
+- [x] `native_test_helper.dart` and `11_releasing.md` added to implementation
+      checklist (Phase 1 and Phase 4 respectively).
+- [x] Supply-chain trade-off: accepted and documented in Open Questions above.
+      No mirroring step.
 
 ## Summary
 
