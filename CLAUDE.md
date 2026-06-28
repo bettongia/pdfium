@@ -60,7 +60,7 @@ packages/
         rendering/
           pdf_page_size.dart   # PdfPageSize — page dimensions in points
         pdf_exception.dart     # PdfExtractionException, PdfiumException, PdfError
-        pdfium_version.dart    # pdfiumSha constant — must match version_pdfium.json
+        pdfium_version.dart    # pdfiumVersion + bblanchonBuild constants — must match version_pdfium.json
         generated/
           pdfium_bindings.dart # Auto-generated FFI bindings (committed; regenerate
                                # with make ffi_bindings)
@@ -87,13 +87,12 @@ packages/
         libpdfium.so           # Linux x86_64 binary loaded by Dart FFI
       linux_arm64/
         libpdfium.so           # Linux arm64 binary loaded by Dart FFI
-      VERSION                  # Installed PDFium commit SHA (single line)
+      VERSION                  # Installed bblanchon build number (e.g. "7906")
   betto_pdfium_ios/            # Flutter iOS companion plugin
     betto_pdfium_ios.mk        # Per-package Makefile fragment
     ios/betto_pdfium_ios/
-      Package.swift            # SPM package: PdfiumIos → PdfiumAnchor → pdfium_binary
+      Package.swift            # SPM package: PdfiumIos → pdfium_binary (dynamic xcframework)
       Sources/
-        PdfiumAnchor/          # C anchor that references FPDF_InitLibraryWithConfig
         PdfiumIos/             # Swift Flutter plugin stub (BettoPdfiumIosPlugin)
     pubspec.yaml               # Flutter plugin pubspec (iOS platform only)
 docs/
@@ -127,15 +126,18 @@ dart test packages/betto_pdfium/test/pdf_types_test.dart
 
 ### PDFium binary commands
 
-Pre-built PDFium binaries are fetched from GitHub Releases. No local C++
-toolchain is required.
+Pre-built PDFium binaries are sourced from
+[bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries).
+No local C++ toolchain is required.
 
 ```bash
-make fetch_pdfium            # Download the binary and public headers matching PDFIUM_VERSION
-make check_pdfium_version    # Verify installed binary and headers match PDFIUM_VERSION
-make ffi_bindings            # Regenerate Dart FFI bindings from third_party/pdfium/public/
-make update_pdfium_manifest  # Rewrite version_pdfium.json + pdfium_version.dart from the
-                             # checksums.sha256 published in the GitHub Release for PDFIUM_VERSION
+make fetch_pdfium              # Download binary + headers matching BBLANCHON_BUILD
+make check_pdfium_version      # Verify installed binary and headers match BBLANCHON_BUILD
+make ffi_bindings              # Regenerate Dart FFI bindings from third_party/pdfium/public/
+make update_pdfium_manifest    # Download bblanchon tarballs, compute SHA-256s, rewrite
+                               # version_pdfium.json + pdfium_version.dart + Package.swift
+make repack_ios_xcframework    # Build pdfium.xcframework from bblanchon iOS tarballs and
+                               # upload to bettongia/pdfium GitHub Release
 ```
 
 **Developer setup:**
@@ -143,8 +145,7 @@ make update_pdfium_manifest  # Rewrite version_pdfium.json + pdfium_version.dart
 1. Run `make test` — the native-assets hook downloads the platform binary into
    `.dart_tool/betto_pdfium/` automatically before the first test run.
 2. (Optional) To work with PDFium headers (e.g. to regenerate FFI bindings):
-   ensure `gh` (GitHub CLI) is installed and authenticated, then run
-   `make fetch_pdfium`.
+   run `make fetch_pdfium`.
 
 **Binary and headers layout:**
 
@@ -156,31 +157,25 @@ packages/betto_pdfium/third_party/pdfium_bin/   ← gitignored; populated by mak
     libpdfium.so              ← loaded by Dart FFI on Linux x86_64
   linux_arm64/
     libpdfium.so              ← loaded by Dart FFI on Linux arm64
-  VERSION                     ← installed PDFium commit SHA (single line)
+  VERSION                     ← installed bblanchon build number (e.g. "7906")
 packages/betto_pdfium/third_party/pdfium/       ← gitignored; populated by make fetch_pdfium
-  public/                     ← PDFium public headers (from the same release)
+  public/                     ← PDFium public headers (extracted from the bblanchon tarball)
 ```
 
-**Bumping the PDFium SHA (two-commit workflow):**
+**Bumping the bblanchon version (single-commit workflow):**
 
-Commit 1 — trigger the build:
-1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
-2. Commit and push — CI rebuilds all platform binaries and packages the public
-   headers, then publishes a new GitHub Release tagged `pdfium-<sha>`.
-
-Wait for CI to finish and publish the release.
-
-Commit 2 — update the hook manifest:
-3. `make update_pdfium_manifest` — reads checksums from the published release,
-   rewrites `version_pdfium.json` and `lib/src/pdfium_version.dart`.
+1. Update `BBLANCHON_BUILD` with the new build number.
+2. `make repack_ios_xcframework` — repacks bblanchon iOS tarballs into a
+   `pdfium.xcframework` and uploads it to a new `bettongia/pdfium` release.
+3. `make update_pdfium_manifest` — downloads bblanchon tarballs, computes
+   SHA-256s, rewrites `version_pdfium.json`, `lib/src/pdfium_version.dart`,
+   and `Package.swift`.
 4. `make fetch_pdfium` to install the new binary and headers locally.
-5. `make ffi_bindings` to regenerate `lib/src/generated/pdfium_bindings.dart`
-   if the public API changed.
-6. Commit `version_pdfium.json`, `lib/src/pdfium_version.dart`, and any
-   updated bindings.
+5. `make ffi_bindings` if the PDFium public API changed.
+6. Commit all changed files.
 
 See `docs/spec/01_binary_distribution.md` for the full distribution contract
-(artifact layout, tag format, checksum verification, smoke test coverage).
+and `docs/spec/11_releasing.md` for the detailed version-bump workflow.
 
 **FFI bindings:** The generated file `lib/src/generated/pdfium_bindings.dart`
 is committed so that developers can build and run Dart code without the build

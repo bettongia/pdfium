@@ -2904,7 +2904,7 @@ ffi.DynamicLibrary _openLibrary() {
       // dart test / dart run (JIT): build system stages to .dart_tool/lib/.
       '$cwd/.dart_tool/lib/$libName',
       // Hook cache direct path (fallback if staging hasn't copied the file).
-      '$cwd/.dart_tool/betto_pdfium/$pdfiumSha/$libName',
+      '$cwd/.dart_tool/betto_pdfium/$bblanchonBuild/$libName',
     ];
     for (final path in candidates) {
       final f = File(path);
@@ -2940,7 +2940,7 @@ ffi.DynamicLibrary _openLibrary() {
       // dart test / dart run (JIT): build system stages to .dart_tool/lib/.
       '$cwd/.dart_tool/lib/$dylib',
       // Hook cache direct path (fallback if staging hasn't copied the file).
-      '$cwd/.dart_tool/betto_pdfium/$pdfiumSha/$dylib',
+      '$cwd/.dart_tool/betto_pdfium/$bblanchonBuild/$dylib',
     ];
 
     for (final path in candidates) {

@@ -16,8 +16,8 @@
 
 # fetch_mobile_binaries.sh
 #
-# Downloads Android shared libraries from the GitHub Release identified in
-# ../version_pdfium.json (the same manifest consumed by the native-assets hook).
+# Downloads Android shared libraries from bblanchon/pdfium-binaries tarballs,
+# using the URLs and SHA-256 checksums in version_pdfium.json.
 #
 # iOS is NOT handled here. The betto_pdfium_ios Package.swift uses a URL-based
 # SPM binaryTarget, so Xcode/SPM downloads and caches the xcframework
@@ -27,12 +27,23 @@
 #   android/src/main/jniLibs/arm64-v8a/libpdfium.so
 #   android/src/main/jniLibs/x86_64/libpdfium.so
 #
+# ## Download protocol
+#
+# bblanchon publishes `.tgz` tarballs, not bare `.so` files. This script:
+#   1. Downloads the tarball to a temp directory.
+#   2. Verifies SHA-256 of the tarball BEFORE extraction.
+#   3. Extracts `lib/libpdfium.so` from the verified tarball.
+#   4. Installs to the jniLibs destination.
+#
+# SHA-256 in version_pdfium.json is over the .tgz, not the extracted .so.
+#
 # Usage (from the integration_test_app/ directory or via make):
 #   scripts/fetch_mobile_binaries.sh             # fetch Android libraries
 #   scripts/fetch_mobile_binaries.sh --android-only  # same (explicit)
 #
 # Prerequisites:
 #   - curl
+#   - tar
 #   - shasum (macOS) or sha256sum (Linux) — auto-detected
 
 set -euo pipefail
@@ -42,7 +53,7 @@ APP_DIR="$(dirname "$SCRIPT_DIR")"
 MANIFEST="$APP_DIR/../version_pdfium.json"
 
 # Parse flags (--android-only accepted for backward compatibility; --ios-only
-# is a no-op since iOS is now handled by SPM via the URL binaryTarget in
+# is a no-op since iOS is handled by SPM via the URL binaryTarget in
 # betto_pdfium_ios/ios/betto_pdfium_ios/Package.swift).
 IOS_ONLY=0
 ANDROID_ONLY=0
@@ -65,24 +76,13 @@ require() {
     command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not found. Install it and retry."
 }
 
-# json_field <file> <key> — extract a string value from a simple JSON file
-# using only grep/sed (no jq dependency).
-# Only handles flat string values like "key": "value".
-json_field() {
-    local file="$1"
-    local key="$2"
-    grep "\"$key\"" "$file" | head -1 | sed 's/.*"'"$key"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/'
-}
-
 # platform_field <file> <platform> <field> — extract nested platform field.
 # Reads "platforms" → "<platform>" → "<field>" from version_pdfium.json.
-# Uses a two-pass grep: find the platform block, then find the field within it.
+# Uses awk to find the platform block, then extract the field within it.
 platform_field() {
     local file="$1"
     local platform="$2"
     local field="$3"
-    # Extract the block starting from the platform key. Stop at the next key
-    # at the same level (another quoted string at column 4).
     awk "/\"$platform\"/{found=1} found && /\"$field\"/{print; found=0}" "$file" \
         | head -1 \
         | sed 's/.*"'"$field"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/'
@@ -99,26 +99,51 @@ sha256_file() {
     fi
 }
 
-# download_and_verify <url> <expected_sha256> <dest_file>
-# Downloads <url> to <dest_file> and verifies the SHA-256 digest.
-download_and_verify() {
+# download_tgz_and_extract <url> <expected_sha256> <lib_path_in_tgz> <dest_file>
+#
+# Downloads the .tgz at <url>, verifies SHA-256 of the tarball (not the
+# extracted file), extracts <lib_path_in_tgz> from the tarball, and installs
+# it at <dest_file>.
+download_tgz_and_extract() {
     local url="$1"
     local expected="$2"
-    local dest="$3"
+    local lib_path="$3"
+    local dest="$4"
 
-    echo "  Downloading $(basename "$dest") ..."
-    curl --silent --show-error --location --fail --output "$dest" "$url"
+    local tgz_name
+    tgz_name=$(basename "$url")
 
+    echo "  Downloading $tgz_name ..."
+    curl --silent --show-error --location --fail --output "$WORK/$tgz_name" "$url"
+
+    # Verify checksum of the tarball BEFORE extraction.
     local actual
-    actual=$(sha256_file "$dest")
+    actual=$(sha256_file "$WORK/$tgz_name")
     if [ "$actual" != "$expected" ]; then
-        rm -f "$dest"
-        die "SHA-256 mismatch for $(basename "$dest"):
+        rm -f "$WORK/$tgz_name"
+        die "SHA-256 mismatch for $tgz_name:
   expected: $expected
   actual:   $actual
   The downloaded file has been removed. Re-run to retry."
     fi
     echo "  Verified SHA-256: $actual"
+
+    # Extract the shared library from the verified tarball.
+    local strip_components
+    strip_components=$(echo "$lib_path" | tr -cd '/' | wc -c | tr -d '[:space:]')
+    local lib_name
+    lib_name=$(basename "$lib_path")
+
+    mkdir -p "$WORK/extract_$$"
+    tar -xzf "$WORK/$tgz_name" -C "$WORK/extract_$$" \
+        --strip-components="$strip_components" "$lib_path"
+
+    # Install extracted library to the destination.
+    mkdir -p "$(dirname "$dest")"
+    mv "$WORK/extract_$$/$lib_name" "$dest"
+    rm -rf "$WORK/extract_$$"
+
+    echo "  Installed: $dest"
 }
 
 # ---------------------------------------------------------------------------
@@ -126,7 +151,7 @@ download_and_verify() {
 # ---------------------------------------------------------------------------
 
 require curl
-require unzip
+require tar
 
 [ -f "$MANIFEST" ] || die "version_pdfium.json not found at $MANIFEST"
 
@@ -136,13 +161,17 @@ require unzip
 
 ANDROID_ARM64_URL=$(platform_field "$MANIFEST" "android-arm64" "url")
 ANDROID_ARM64_SHA=$(platform_field "$MANIFEST" "android-arm64" "sha256")
+ANDROID_ARM64_LIB=$(platform_field "$MANIFEST" "android-arm64" "lib_path")
 ANDROID_X64_URL=$(platform_field "$MANIFEST" "android-x64" "url")
 ANDROID_X64_SHA=$(platform_field "$MANIFEST" "android-x64" "sha256")
+ANDROID_X64_LIB=$(platform_field "$MANIFEST" "android-x64" "lib_path")
 
 [ -n "$ANDROID_ARM64_URL" ] || die "android-arm64 url not found in $MANIFEST"
 [ -n "$ANDROID_ARM64_SHA" ] || die "android-arm64 sha256 not found in $MANIFEST"
+[ -n "$ANDROID_ARM64_LIB" ] || die "android-arm64 lib_path not found in $MANIFEST"
 [ -n "$ANDROID_X64_URL" ]   || die "android-x64 url not found in $MANIFEST"
 [ -n "$ANDROID_X64_SHA" ]   || die "android-x64 sha256 not found in $MANIFEST"
+[ -n "$ANDROID_X64_LIB" ]   || die "android-x64 lib_path not found in $MANIFEST"
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -168,17 +197,16 @@ fi
 
 if [ "$IOS_ONLY" -eq 0 ]; then
     echo ""
-    echo "fetch_mobile_binaries: fetching Android shared libraries ..."
+    echo "fetch_mobile_binaries: fetching Android shared libraries from bblanchon ..."
 
     ARM64_DIR="$APP_DIR/android/src/main/jniLibs/arm64-v8a"
     X64_DIR="$APP_DIR/android/src/main/jniLibs/x86_64"
-    mkdir -p "$ARM64_DIR" "$X64_DIR"
 
-    download_and_verify "$ANDROID_ARM64_URL" "$ANDROID_ARM64_SHA" \
+    download_tgz_and_extract "$ANDROID_ARM64_URL" "$ANDROID_ARM64_SHA" "$ANDROID_ARM64_LIB" \
         "$ARM64_DIR/libpdfium.so"
     echo "  Android arm64 library installed at android/src/main/jniLibs/arm64-v8a/libpdfium.so"
 
-    download_and_verify "$ANDROID_X64_URL" "$ANDROID_X64_SHA" \
+    download_tgz_and_extract "$ANDROID_X64_URL" "$ANDROID_X64_SHA" "$ANDROID_X64_LIB" \
         "$X64_DIR/libpdfium.so"
     echo "  Android x86_64 library installed at android/src/main/jniLibs/x86_64/libpdfium.so"
 fi

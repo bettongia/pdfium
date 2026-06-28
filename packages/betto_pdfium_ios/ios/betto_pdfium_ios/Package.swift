@@ -13,31 +13,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Flutter iOS plugin package that links the PDFium static xcframework.
+// Flutter iOS plugin package that embeds the PDFium dynamic xcframework.
 //
-// Design: three-target chain to prevent linker dead-stripping.
+// Design: two-target chain (no dead-strip workaround needed for dynamic libs).
 //
-// PDFium is a C library statically linked into the iOS app. Because Dart
-// resolves all FPDF_* symbols at runtime via DynamicLibrary.process(), the
-// linker has zero compile-time references to any PDFium symbol and is free
-// to dead-strip the entire archive. A bare binaryTarget is not sufficient.
+// PDFium is now a dynamic framework (not a static archive). Xcode automatically
+// embeds dynamic frameworks from a binaryTarget into the app bundle, and the
+// linker links them normally — no PdfiumAnchor C anchor is required.
 //
-// The chain PdfiumIos → PdfiumAnchor → pdfium_binary ensures:
-//  1. pdfium_binary (binaryTarget): the xcframework is linked.
-//  2. PdfiumAnchor (C source target): holds __attribute__((used)) pointer to
-//     FPDF_InitLibraryWithConfig, giving the linker a compile-time reference
-//     that prevents dead-stripping of the archive.
-//  3. PdfiumIos (Swift source target): the Flutter plugin class that Flutter's
-//     generated plugin registrant imports. Its dependency on PdfiumAnchor
-//     pulls the anchor (and transitively the xcframework) into the build.
+// The chain PdfiumIos → pdfium_binary ensures:
+//  1. pdfium_binary (binaryTarget): SPM downloads the xcframework from the
+//     bettongia/pdfium GitHub Release and Xcode embeds it in the app bundle.
+//  2. PdfiumIos (Swift source target): the Flutter plugin class that Flutter's
+//     generated plugin registrant imports. Its dependency on pdfium_binary
+//     pulls the xcframework into the build graph.
+//
+// At runtime, DynamicLibrary.process() locates all PDFium symbols because
+// the embedded dynamic framework's exports are present in the process image
+// from the moment the app launches — no explicit dlopen path is needed.
 //
 // The binaryTarget uses a URL (not a local path) so that SPM downloads the
-// xcframework directly from the GitHub Release. A local path would break
-// because Flutter copies this Package.swift into an ephemeral directory,
-// making relative paths unresolvable.
+// xcframework directly from the bettongia/pdfium GitHub Release. A local path
+// would break because Flutter copies this Package.swift into an ephemeral
+// directory, making relative paths unresolvable.
 //
 // The URL and checksum are updated by `make update_pdfium_manifest` whenever
-// the PDFium SHA is bumped.
+// the bblanchon build is bumped (after running `make repack_ios_xcframework`).
 
 import PackageDescription
 
@@ -53,22 +54,17 @@ let package = Package(
         // must match the plugin name exactly.
         .target(
             name: "betto_pdfium_ios",
-            dependencies: ["PdfiumAnchor"],
+            dependencies: ["pdfium_binary"],
             path: "Sources/PdfiumIos"
         ),
-        // C anchor target: provides the compile-time FPDF_* reference that
-        // prevents the linker from dead-stripping the PDFium archive.
-        .target(
-            name: "PdfiumAnchor",
-            dependencies: ["pdfium_binary"],
-            path: "Sources/PdfiumAnchor"
-        ),
-        // Binary target: PDFium xcframework downloaded directly by SPM.
+        // Binary target: PDFium dynamic xcframework downloaded directly by SPM.
+        // Repacked from bblanchon/pdfium-binaries iOS device + simulator
+        // tarballs by `make repack_ios_xcframework`.
         // Updated by `make update_pdfium_manifest`.
         .binaryTarget(
             name: "pdfium_binary",
-            url: "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-ios-arm64.xcframework.zip",
-            checksum: "660ab74f31a80b69097e53676425ac083ce86391255c6b20e28d2da8005aabd4"
+            url: "https://github.com/bettongia/pdfium/releases/download/bblanchon-chromium-7906/pdfium.xcframework.zip",
+            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
         ),
     ]
 )
