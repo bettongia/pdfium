@@ -1,6 +1,6 @@
 # Migrate to bblanchon/pdfium-binaries
 
-**Status**: Investigated
+**Status**: Implementing
 
 **PR link**: _pending_
 
