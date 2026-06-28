@@ -350,10 +350,23 @@ come from bblanchon. Coordinate with the team before archiving.
   `PDFIUM_VERSION` SHA-bump workflow with the new `BBLANCHON_BUILD` bump flow
 - [x] Update roadmap `0_01.md` overall status for cross-platform pipeline to
   **Complete**
-- [ ] Coordinate archiving of `pdfium-build` CI pipeline once all four
-  platform tests are green (requires `make repack_ios_xcframework` and on-device testing)
-- [ ] Run the `bettongia:quality-reviewer` agent for a full quality audit
-  before submitting the PR
+- [x] Coordinate archiving of `pdfium-build` CI pipeline — **completed
+  2026-06-28:**
+  - Deleted `.github/workflows/build_pdfium.yml` (the self-build CI pipeline
+    is fully superseded by bblanchon pre-built binaries)
+  - Fixed `.github/workflows/cicd.yml` cache keys: both `hashFiles()`
+    references updated from the deleted `PDFIUM_VERSION` file to
+    `BBLANCHON_BUILD` (broken cache key would have caused all CI runs to
+    share the same cache bucket)
+  - Tagged the tip of the `pdfium-build` orphan branch as
+    `archive/pdfium-build-pipeline` and pushed to GitHub (preserves the
+    full build-pipeline history — GN patches, Mach-O headerpad fix, iOS
+    simulator slice work — without keeping an active branch)
+  - Deleted `pdfium-build` branch (local + remote) and removed its worktree
+- [x] Run the `bettongia:quality-reviewer` agent for a full quality audit
+  before submitting the PR — **passed; two minor issues found and fixed:
+  stale Android jniLibs path in spec, license header wording in
+  `fetch_mobile_binaries.sh`**
 
 ### Phase 5 — Future (out of scope for this plan)
 
