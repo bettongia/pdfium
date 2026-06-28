@@ -1,29 +1,30 @@
 {
-  "pdfium_sha": "75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef",
+  "bblanchon_build": "7906",
   "platforms": {
     "macos-arm64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-macos-arm64.dylib",
-      "sha256": "27341e579147bbe72351febe3e0915b295080a1ecea49fc24677dd6d30aa483f"
-    },
-    "linux-arm64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-linux-arm64.so",
-      "sha256": "2223446b7b31c13e7fd4eff29ec8f177571bf4543fca16cfccc27ab10b6eed24"
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-mac-arm64.tgz",
+      "lib_path": "lib/libpdfium.dylib",
+      "sha256": "d7179c5667c6ff5032a4e57840df642e094c101f464ec18aabb0ea22fb722f8e"
     },
     "linux-x64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-linux-x86_64.so",
-      "sha256": "6087e592c77d65861932efb7d6d4017abb1582a2a1e77d3ba4b0b70f47e3c6b9"
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-linux-x64.tgz",
+      "lib_path": "lib/libpdfium.so",
+      "sha256": "e07bc44c4e422c50eb01da742dc1ec59ad6780ce64ed91955533da8e9fe1a363"
     },
-    "ios-arm64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-ios-arm64.xcframework.zip",
-      "sha256": "660ab74f31a80b69097e53676425ac083ce86391255c6b20e28d2da8005aabd4"
+    "linux-arm64": {
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-linux-arm64.tgz",
+      "lib_path": "lib/libpdfium.so",
+      "sha256": "a188262ab444d43e6030ffabc8b03a7d3a4e3b1146ecbfb030af42f402ee0cff"
     },
     "android-arm64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-android-arm64.so",
-      "sha256": "39d9ae96bfad52d9090719a3c1fdbe2e5eb0eabcb70344b5953b51db451aff37"
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-android-arm64.tgz",
+      "lib_path": "lib/libpdfium.so",
+      "sha256": "32bcfbe476816e74b8ccfd283cae66313be7508df7c9223d0eb8834e23036633"
     },
     "android-x64": {
-      "url": "https://github.com/bettongia/pdfium/releases/download/pdfium-75ea0a73e1cb08beabb2800b0ba3f5c931d2cdef/libpdfium-android-x86_64.so",
-      "sha256": "ca830b8215cc58d6fc967ce86798f4089d88aaba7627adfea736db8dec22c056"
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-android-x64.tgz",
+      "lib_path": "lib/libpdfium.so",
+      "sha256": "74a8e8dd8d17cf27048b856e5e2a5a9cc1cff9e91ea4dd81efbcc6aa41d589db"
     }
   }
 }

@@ -23,7 +23,7 @@
 //      (populated by `make fetch_pdfium`).
 //   2. Native-assets staged location: .dart_tool/lib/libpdfium.*
 //      (populated by the Dart build system when `dart test` runs the hook).
-//   3. Hook cache: .dart_tool/betto_pdfium/{sha}/libpdfium.*
+//   3. Hook cache: .dart_tool/betto_pdfium/{bblanchonBuild}/libpdfium.*
 //      (the hook's download cache; used as a direct fallback).
 
 import 'dart:ffi' show Abi;
@@ -53,7 +53,7 @@ List<String> _dylibCandidates() {
     return [
       'third_party/pdfium_bin/$arch/$libName',
       '.dart_tool/lib/$libName',
-      '.dart_tool/betto_pdfium/$pdfiumSha/$libName',
+      '.dart_tool/betto_pdfium/$bblanchonBuild/$libName',
     ];
   }
   // macOS arm64.
@@ -61,6 +61,6 @@ List<String> _dylibCandidates() {
   return [
     'third_party/pdfium_bin/macos_arm64/$libName',
     '.dart_tool/lib/$libName',
-    '.dart_tool/betto_pdfium/$pdfiumSha/$libName',
+    '.dart_tool/betto_pdfium/$bblanchonBuild/$libName',
   ];
 }

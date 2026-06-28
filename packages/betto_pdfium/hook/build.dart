@@ -15,46 +15,49 @@
 /// Native-assets build hook for `betto_pdfium`.
 ///
 /// Downloads the PDFium prebuilt binary for the target platform/arch from
-/// GitHub Releases, verifies the SHA-256 checksum, and emits it as a
-/// [CodeAsset] with [DynamicLoadingBundled] link mode so the Dart/Flutter
-/// build system bundles it alongside the executable.
+/// [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries)
+/// GitHub Releases, verifies the SHA-256 checksum of the `.tgz` tarball,
+/// extracts the shared library, and emits it as a [CodeAsset] with
+/// [DynamicLoadingBundled] link mode so the Dart/Flutter build system bundles
+/// it alongside the executable.
 ///
 /// ## Design
 ///
-/// PDFium binaries are published to GitHub Releases as direct `.dylib` / `.so`
-/// files (not archives), which keeps this hook simpler than hooks that wrap
-/// ORT tarballs — no extraction step is needed. SHA-256 is verified directly
-/// against the downloaded file.
+/// bblanchon/pdfium-binaries publishes per-platform `.tgz` tarballs. Each
+/// tarball contains `lib/libpdfium.{dylib,so}` and `include/*.h` (public
+/// headers). The hook:
 ///
-/// The hook follows the same crash-safe write discipline as `betto_onnxrt`:
-/// - Download to a `.part` temp file alongside the final path.
-/// - Verify SHA-256 before renaming.
-/// - Atomic rename on success.
-/// - Present-file SHA short-circuit: if the final file exists and its sidecar
-///   SHA matches, skip the download entirely.
-/// - Concurrent invocations use last-writer-wins on the atomic rename — both
-///   writers produce byte-identical, checksum-verified output.
+/// 1. Downloads the `.tgz` to a `.part` temp file.
+/// 2. Verifies SHA-256 of the `.tgz` against `version_pdfium.json` before
+///    extracting — the SHA is over the tarball, not the library.
+/// 3. Extracts `lib_path` from the tarball into the final location.
+/// 4. Atomically renames the `.part` file on success.
+/// 5. Writes a `.sha256` sidecar so subsequent builds skip the download.
+///
+/// Concurrent invocations use last-writer-wins on the atomic rename — both
+/// writers produce byte-identical, checksum-verified output.
 ///
 /// ## Platform manifest
 ///
-/// All platform binary metadata (SHA, download URLs, SHA-256 digests) is
-/// stored in `version_pdfium.json` at the package root. The hook reads this
-/// file at build time via [_loadPlatformManifest]. The JSON is the single
-/// source of truth for hook downloads; `PDFIUM_VERSION` is the canonical
-/// source for the pdfium-build pipeline.
+/// All platform binary metadata (bblanchon build number, download URLs,
+/// SHA-256 digests) is stored in `version_pdfium.json` at the package root.
+/// The hook reads this file at build time via [_loadPlatformManifest].
+/// The `BBLANCHON_BUILD` file is the canonical build number for developers.
 ///
 /// ## Unsupported platforms
 ///
-/// - **iOS**: the XCFramework is a static library. Flutter's iOS native-assets
-///   system enforces `linkModePreference = dynamic` and rejects static archives.
-///   iOS support requires an SPM plugin shim (see the mobile integration test
-///   plan). No CodeAsset is emitted; `_openLibrary()` in the runtime uses
-///   `DynamicLibrary.process()` once the shim statically links PDFium.
+/// - **iOS**: the xcframework is a dynamic library embedded via SPM as a
+///   `binaryTarget`. Flutter's iOS native-assets system is bypassed; SPM
+///   downloads the xcframework directly during `flutter pub get`. No CodeAsset
+///   is emitted; `_openLibrary()` in the runtime uses
+///   `DynamicLibrary.process()` since the embedded dynamic framework's symbols
+///   are in the process image.
 ///
-/// - **Android**: the build pipeline Android artifacts are not yet available
-///   in a working state. No CodeAsset is emitted.
+/// - **Android**: the `.so` is placed in `jniLibs/` by
+///   `fetch_mobile_binaries.sh` and loaded with
+///   `DynamicLibrary.open('libpdfium.so')` at runtime. No CodeAsset is emitted.
 ///
-/// - **Windows**: no Windows binary in the build pipeline yet.
+/// - **Windows**: not yet supported.
 library;
 
 import 'dart:convert';
@@ -80,17 +83,23 @@ Future<void> _buildHook(BuildInput input, BuildOutputBuilder output) async {
   print('betto_pdfium hook: os=$os arch=$arch');
 
   if (os == OS.iOS) {
+    // iOS uses an SPM binaryTarget (dynamic xcframework) downloaded during
+    // `flutter pub get`. No CodeAsset is emitted here; the runtime opens the
+    // library via DynamicLibrary.process() since the embedded framework's
+    // symbols are in the process image.
     print(
-      'betto_pdfium: iOS native-assets not supported — PDFium XCFramework is '
-      'static; Flutter iOS requires dynamic link mode. No CodeAsset emitted.',
+      'betto_pdfium: iOS uses SPM binaryTarget (dynamic xcframework). '
+      'No CodeAsset emitted from the native-assets hook.',
     );
     return;
   }
 
   if (os == OS.android) {
+    // Android loads libpdfium.so from jniLibs/ via DynamicLibrary.open().
+    // The .so is placed there by fetch_mobile_binaries.sh, not the hook.
     print(
-      'betto_pdfium: Android native-assets pending — artifacts not yet '
-      'available. No CodeAsset emitted.',
+      'betto_pdfium: Android loads libpdfium.so from jniLibs/. '
+      'No CodeAsset emitted from the native-assets hook.',
     );
     return;
   }
@@ -113,16 +122,18 @@ Future<void> _buildDesktop(
   Uri packageRoot,
 ) async {
   final platformEntry = _loadPlatformManifest(os, arch, packageRoot);
-  final sha = _readManifestSha(packageRoot);
+  final build = _readBblanchonBuild(packageRoot);
   final url = platformEntry['url'] as String;
   final expectedSha = platformEntry['sha256'] as String;
+  final libPath = platformEntry['lib_path'] as String;
 
   final libFileName = os == OS.macOS ? 'libpdfium.dylib' : 'libpdfium.so';
-  final cacheDir = _cacheDirectory(packageRoot, sha);
+  final cacheDir = _cacheDirectory(packageRoot, build);
   final libFile = File('${cacheDir.path}/$libFileName');
 
-  await _ensureFile(
+  await _ensureTgzExtracted(
     dest: libFile,
+    libPathInTgz: libPath,
     expectedSha256: expectedSha,
     downloadUrl: url,
   );
@@ -141,14 +152,22 @@ Future<void> _buildDesktop(
 
 // ── Platform manifest ─────────────────────────────────────────────────────────
 
-/// Reads the `pdfium_sha` field from `version_pdfium.json`.
-String _readManifestSha(Uri packageRoot) {
+/// Reads the `bblanchon_build` field from `version_pdfium.json`.
+///
+/// This slash-free build number (e.g. `'7906'`) is used as the cache
+/// directory key so that a build-number bump causes a fresh download.
+String _readBblanchonBuild(Uri packageRoot) {
   final f = File.fromUri(packageRoot.resolve('version_pdfium.json'));
   final decoded = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
-  return decoded['pdfium_sha'] as String;
+  return decoded['bblanchon_build'] as String;
 }
 
 /// Loads and returns the platform entry from `version_pdfium.json`.
+///
+/// Each entry has the following fields:
+/// - `url`:      full download URL for the bblanchon `.tgz` tarball
+/// - `lib_path`: path within the tarball to the shared library
+/// - `sha256`:   expected SHA-256 of the `.tgz` file (not the extracted lib)
 ///
 /// Platform key mapping:
 ///   - macOS arm64   → `"macos-arm64"`
@@ -199,46 +218,52 @@ String _platformKey(OS os, Architecture arch) {
 
 // ── Cache directory ───────────────────────────────────────────────────────────
 
-/// Returns `.dart_tool/betto_pdfium/{sha}/` inside the package root.
+/// Returns `.dart_tool/betto_pdfium/{build}/` inside the package root.
 ///
-/// Using `.dart_tool/` ensures the cache is gitignored. The SHA scopes the
-/// cache so a PDFium version bump causes a fresh download.
-Directory _cacheDirectory(Uri packageRoot, String sha) {
+/// Using `.dart_tool/` ensures the cache is gitignored. The build number
+/// scopes the cache so a bblanchon version bump causes a fresh download.
+Directory _cacheDirectory(Uri packageRoot, String build) {
   return Directory.fromUri(
-    packageRoot.resolve('.dart_tool/betto_pdfium/$sha/'),
+    packageRoot.resolve('.dart_tool/betto_pdfium/$build/'),
   );
 }
 
-// ── File acquisition ──────────────────────────────────────────────────────────
+// ── File acquisition (tgz) ───────────────────────────────────────────────────
 
-/// Ensures [dest] exists and its SHA-256 matches [expectedSha256].
+/// Ensures [dest] exists and is the extracted shared library from a bblanchon
+/// `.tgz` tarball.
 ///
-/// ## Fast path
+/// ## Crash-safe write discipline
 ///
-/// If [dest] and a sidecar `{dest.path}.sha256` are both present and the
-/// sidecar content equals [expectedSha256], the cached file is trusted and
-/// the download is skipped.
+/// 1. Check fast path: if [dest] and its sidecar `.sha256` already exist and
+///    the sidecar content matches [expectedSha256], trust the cached file.
+/// 2. Download the `.tgz` to a `.tgz.part` temp file.
+/// 3. Verify SHA-256 of the `.tgz` **before extraction** — the checksum is
+///    over the whole tarball, not the extracted library.
+/// 4. Atomically rename `.tgz.part` → `.tgz` on success.
+/// 5. Extract [libPathInTgz] from the `.tgz` to a `.part` temp file.
+/// 6. Rename the extracted `.part` → final [dest].
+/// 7. Write a `.sha256` sidecar (of the `.tgz`, not the library) for the
+///    fast-path check on subsequent invocations.
 ///
-/// ## Download
-///
-/// Downloads [downloadUrl], verifies the SHA-256, writes [dest] atomically
-/// via a `.part` temp file, and writes the sidecar so future builds hit the
-/// fast path.
+/// Concurrent invocations use last-writer-wins on the atomic rename — both
+/// writers produce byte-identical, checksum-verified output.
 ///
 /// ## macOS xattr
 ///
-/// Files downloaded from the internet on macOS receive `com.apple.quarantine`
-/// and `com.apple.provenance` extended attributes. These block `install_name_tool`
+/// Downloaded files on macOS receive `com.apple.quarantine` and
+/// `com.apple.provenance` extended attributes that block `install_name_tool`
 /// (run by Flutter's bundler) and may interfere with `dlopen`. They are
 /// stripped after every write via `xattr -c`.
-Future<void> _ensureFile({
+Future<void> _ensureTgzExtracted({
   required File dest,
+  required String libPathInTgz,
   required String expectedSha256,
   required String downloadUrl,
 }) async {
   final sidecar = File('${dest.path}.sha256');
 
-  // Fast path: file present and sidecar matches.
+  // Fast path: extracted library present and tgz sidecar matches.
   if (dest.existsSync() && sidecar.existsSync()) {
     final stored = sidecar.readAsStringSync().trim();
     if (stored == expectedSha256) {
@@ -250,13 +275,19 @@ Future<void> _ensureFile({
 
   await dest.parent.create(recursive: true);
 
-  print('  downloading ${dest.uri.pathSegments.last} ...');
+  // Download the tarball to a .part file for crash safety.
+  final tgzPath = '${dest.parent.path}/${_tgzName(downloadUrl)}';
+  final tgzPart = File('$tgzPath.part');
+  final tgzFile = File(tgzPath);
+
+  print('  downloading ${Uri.parse(downloadUrl).pathSegments.last} ...');
   final bytes = await _download(downloadUrl);
 
+  // Verify SHA-256 of the tarball BEFORE extraction.
   final actual = _sha256PureDart(Uint8List.fromList(bytes));
   if (actual != expectedSha256) {
     throw StateError(
-      'SHA-256 mismatch for ${dest.uri.pathSegments.last}.\n'
+      'SHA-256 mismatch for ${Uri.parse(downloadUrl).pathSegments.last}.\n'
       '  Expected : $expectedSha256\n'
       '  Got      : $actual\n'
       'The download may be corrupt or tampered. Delete '
@@ -264,13 +295,68 @@ Future<void> _ensureFile({
     );
   }
 
-  final temp = File('${dest.path}.part');
-  await temp.writeAsBytes(bytes, flush: true);
-  await temp.rename(dest.path);
+  // Write and atomically rename the tarball.
+  await tgzPart.writeAsBytes(bytes, flush: true);
+  await tgzPart.rename(tgzFile.path);
+
+  // Extract the shared library from the verified tarball.
+  await _extractFromTgz(tgzFile, libPathInTgz, dest);
   if (Platform.isMacOS) await _stripXattrs(dest);
 
+  // Write the sidecar (SHA-256 of the tgz) for future fast-path checks.
   await sidecar.writeAsString(expectedSha256, flush: true);
   print('  staged: ${dest.path}');
+}
+
+/// Returns the tarball filename from the download URL (last path segment).
+String _tgzName(String url) => Uri.parse(url).pathSegments.last;
+
+/// Extracts [libPathInTgz] from [tgz] into [dest].
+///
+/// Uses the system `tar` command with `--strip-components=<depth>` so only
+/// the final filename lands in the destination parent directory. The library
+/// is extracted to a `.part` file alongside [dest], then atomically renamed.
+///
+/// Throws [StateError] if `tar` exits non-zero or the extracted file is
+/// missing.
+Future<void> _extractFromTgz(File tgz, String libPathInTgz, File dest) async {
+  // Calculate --strip-components depth from the path within the tarball.
+  // e.g. "lib/libpdfium.dylib" → depth 1 (strip the "lib/" prefix).
+  final components = libPathInTgz.split('/').length - 1;
+
+  final destPart = File('${dest.path}.part');
+  await dest.parent.create(recursive: true);
+
+  // tar extracts to a directory; we use the parent of dest for that.
+  // The entry path is used to select only the desired file.
+  final result = await Process.run('tar', [
+    '-xzf',
+    tgz.path,
+    '-C',
+    dest.parent.path,
+    '--strip-components=$components',
+    libPathInTgz,
+  ]);
+
+  if (result.exitCode != 0) {
+    throw StateError(
+      'tar extraction failed (exit ${result.exitCode}) for '
+      '${tgz.path}:\n${result.stderr}',
+    );
+  }
+
+  // `tar` extracts to dest.parent/<filename>; rename to finalise.
+  final extracted = File('${dest.parent.path}/${libPathInTgz.split('/').last}');
+  if (!extracted.existsSync()) {
+    throw StateError(
+      'tar reported success but extracted file not found: ${extracted.path}\n'
+      'Expected to find $libPathInTgz extracted from ${tgz.path}.',
+    );
+  }
+
+  // Atomic rename: extracted → destPart → dest.
+  await extracted.rename(destPart.path);
+  await destPart.rename(dest.path);
 }
 
 Future<void> _stripXattrs(File file) async {

@@ -13,6 +13,30 @@ This repository contains two pub packages that must be released in lock-step:
 `pubspec.yaml`. Always publish `betto_pdfium` first so the version is available
 on pub.dev before `betto_pdfium_ios` references it.
 
+## Bumping the PDFium version (bblanchon)
+
+PDFium binaries are sourced from bblanchon/pdfium-binaries. To adopt a new
+bblanchon release:
+
+1. Update `packages/betto_pdfium/BBLANCHON_BUILD` with the new build number
+   (e.g. `7906` → `7907`).
+2. Run `make repack_ios_xcframework` — downloads bblanchon iOS device + simulator
+   tarballs, repacks them into `pdfium.xcframework`, and uploads the zip to a
+   new `bettongia/pdfium` GitHub Release tagged `bblanchon-chromium-<BUILD>`.
+3. Run `make update_pdfium_manifest` — downloads each bblanchon tarball, computes
+   SHA-256s, rewrites `version_pdfium.json` and `lib/src/pdfium_version.dart`,
+   and updates `Package.swift` with the new iOS xcframework URL and checksum.
+4. Run `make fetch_pdfium` to install the binary and headers locally.
+5. If the PDFium public API changed: run `make ffi_bindings` to regenerate
+   `lib/src/generated/pdfium_bindings.dart`.
+6. Run `make pre_commit` to verify everything passes.
+7. Commit `BBLANCHON_BUILD`, `version_pdfium.json`, `lib/src/pdfium_version.dart`,
+   `Package.swift`, and any regenerated bindings with a message like:
+   `"Bump PDFium to bblanchon chromium/<NEW_BUILD>"`.
+
+See [PDFium Binary Distribution](01_binary_distribution.md) for the full
+contract.
+
 ## Pre-release checklist
 
 Before publishing either package:

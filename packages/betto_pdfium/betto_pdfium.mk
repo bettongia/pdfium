@@ -75,14 +75,15 @@ coverage_html:
 # ---------------------------------------------------------------------------
 # PDFium binary management
 #
-# Pre-built binaries are fetched from GitHub Releases rather than compiled
-# locally. The pdfium-build orphan branch owns the build matrix.
+# Pre-built binaries are fetched from bblanchon/pdfium-binaries GitHub
+# Releases. BBLANCHON_BUILD holds the numeric build number (e.g. 7906).
 #
 # Developer workflow:
-#   make fetch_pdfium            — download binary + headers matching PDFIUM_VERSION
-#   make check_pdfium_version    — verify installed binary/headers match PDFIUM_VERSION
-#   make ffi_bindings            — regenerate Dart FFI bindings after a SHA bump
+#   make fetch_pdfium            — download binary + headers matching BBLANCHON_BUILD
+#   make check_pdfium_version    — verify installed binary/headers match BBLANCHON_BUILD
+#   make ffi_bindings            — regenerate Dart FFI bindings after a build bump
 #   make update_pdfium_manifest  — rewrite version_pdfium.json + pdfium_version.dart
+#   make repack_ios_xcframework  — build pdfium.xcframework from bblanchon iOS tarballs
 # ---------------------------------------------------------------------------
 
 fetch_pdfium:
@@ -96,6 +97,14 @@ check_pdfium_version:
 update_pdfium_manifest:
 	cd $(BETTO_PKG) && scripts/update_pdfium_manifest.sh
 .PHONY: update_pdfium_manifest
+
+# repack_ios_xcframework: download the bblanchon iOS device + simulator tarballs,
+# build a pdfium.xcframework with patched install names, zip it, and upload it
+# to the bettongia/pdfium GitHub Release tagged bblanchon-chromium-<BUILD>.
+# Run this before update_pdfium_manifest when bumping the bblanchon version.
+repack_ios_xcframework:
+	cd $(BETTO_PKG) && scripts/repack_ios_xcframework.sh
+.PHONY: repack_ios_xcframework
 
 ffi_bindings:
 	@echo "ffi_bindings: regenerating Dart FFI bindings from third_party/pdfium/public/ ..."

@@ -19,7 +19,7 @@ set -o pipefail
 set -u
 
 PDFIUM_BIN="third_party/pdfium_bin"
-EXPECTED=$(tr -d '[:space:]' < PDFIUM_VERSION)
+EXPECTED=$(tr -d '[:space:]' < BBLANCHON_BUILD)
 
 if [ ! -f "$PDFIUM_BIN/VERSION" ]; then
     echo "check_pdfium_version: $PDFIUM_BIN/VERSION not found."
@@ -31,8 +31,8 @@ INSTALLED=$(tr -d '[:space:]' < "$PDFIUM_BIN/VERSION")
 
 if [ "$EXPECTED" != "$INSTALLED" ]; then
     echo "check_pdfium_version: PDFium version mismatch."
-    echo "  expected:  $EXPECTED  (PDFIUM_VERSION)"
-    echo "  installed: $INSTALLED (third_party/pdfium_bin/VERSION)"
+    echo "  expected:  chromium/$EXPECTED  (BBLANCHON_BUILD)"
+    echo "  installed: chromium/$INSTALLED (third_party/pdfium_bin/VERSION)"
     echo "  Run 'make fetch_pdfium' to update."
     exit 1
 fi
@@ -43,4 +43,4 @@ if [ ! -d "third_party/pdfium/public" ]; then
     exit 1
 fi
 
-echo "check_pdfium_version: OK ($INSTALLED)"
+echo "check_pdfium_version: OK (bblanchon chromium/$INSTALLED)"
