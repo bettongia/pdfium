@@ -22,3 +22,7 @@ third_party
 build_logs
 **/__pycache__
 scripts/
+test/data/
+test/fixtures/
+integration_test_app/
+requirements.txt

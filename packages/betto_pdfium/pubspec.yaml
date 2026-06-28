@@ -12,6 +12,12 @@ topics:
   - pdf
   - ffi
 
+platforms:
+  macos:
+  linux:
+  android:
+  ios:
+
 environment:
   sdk: ^3.12.0
 
