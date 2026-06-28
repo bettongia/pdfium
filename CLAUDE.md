@@ -77,7 +77,7 @@ packages/
         fetch_mobile_binaries.sh  # Downloads Android .so from release (iOS handled by SPM)
       ios/
       android/
-        src/main/jniLibs/      # gitignored; .so files populated by fetch_mobile_binaries.sh
+        app/src/main/jniLibs/  # gitignored; .so files populated by fetch_mobile_binaries.sh
     third_party/pdfium/        # gitignored; populated by make fetch_pdfium
       public/                  # PDFium public headers for FFI binding generation
     third_party/pdfium_bin/    # gitignored; populated by make fetch_pdfium

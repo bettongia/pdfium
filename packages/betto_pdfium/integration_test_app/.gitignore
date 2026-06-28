@@ -1,5 +1,5 @@
 # Android JNI libraries — populated by scripts/fetch_mobile_binaries.sh
-android/src/main/jniLibs/
+android/app/src/main/jniLibs/
 
 # iOS xcframework lives in betto_pdfium_ios/ at the repo root (gitignored there)
 

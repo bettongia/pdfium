@@ -24,8 +24,8 @@
 # automatically during `flutter pub get` / `flutter test`.
 #
 # Installs artifacts to:
-#   android/src/main/jniLibs/arm64-v8a/libpdfium.so
-#   android/src/main/jniLibs/x86_64/libpdfium.so
+#   android/app/src/main/jniLibs/arm64-v8a/libpdfium.so
+#   android/app/src/main/jniLibs/x86_64/libpdfium.so
 #
 # ## Download protocol
 #
@@ -199,16 +199,16 @@ if [ "$IOS_ONLY" -eq 0 ]; then
     echo ""
     echo "fetch_mobile_binaries: fetching Android shared libraries from bblanchon ..."
 
-    ARM64_DIR="$APP_DIR/android/src/main/jniLibs/arm64-v8a"
-    X64_DIR="$APP_DIR/android/src/main/jniLibs/x86_64"
+    ARM64_DIR="$APP_DIR/android/app/src/main/jniLibs/arm64-v8a"
+    X64_DIR="$APP_DIR/android/app/src/main/jniLibs/x86_64"
 
     download_tgz_and_extract "$ANDROID_ARM64_URL" "$ANDROID_ARM64_SHA" "$ANDROID_ARM64_LIB" \
         "$ARM64_DIR/libpdfium.so"
-    echo "  Android arm64 library installed at android/src/main/jniLibs/arm64-v8a/libpdfium.so"
+    echo "  Android arm64 library installed at android/app/src/main/jniLibs/arm64-v8a/libpdfium.so"
 
     download_tgz_and_extract "$ANDROID_X64_URL" "$ANDROID_X64_SHA" "$ANDROID_X64_LIB" \
         "$X64_DIR/libpdfium.so"
-    echo "  Android x86_64 library installed at android/src/main/jniLibs/x86_64/libpdfium.so"
+    echo "  Android x86_64 library installed at android/app/src/main/jniLibs/x86_64/libpdfium.so"
 fi
 
 echo ""
