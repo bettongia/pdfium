@@ -16,7 +16,6 @@
 //
 // Update these alongside BBLANCHON_BUILD and version_pdfium.json whenever the
 // bblanchon/pdfium-binaries release is bumped.
-
 /// Human-readable PDFium release identifier, matching the bblanchon tag.
 ///
 /// This is the `chromium/NNNN` string used in log messages and documentation.

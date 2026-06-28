@@ -534,13 +534,13 @@ void main() {
     );
 
     test(
-      'search() on search_multipage.pdf finds matches on multiple pages',
+      'search() on search_multipage.pdf finds "gamma" on multiple pages',
       () async {
         final bytes = await _fixture('search_multipage.pdf');
         final doc = await PdfDocument.fromBytes(bytes);
         try {
           final pageIndices = <int>{};
-          await for (final match in doc.search('page')) {
+          await for (final match in doc.search('gamma')) {
             pageIndices.add(match.pageIndex);
           }
           // The multipage fixture has "page" on more than one page.
@@ -609,19 +609,19 @@ void main() {
   // =========================================================================
 
   group('Error handling', () {
-    test('corrupt.pdf throws PdfiumException on fromBytes()', () async {
+    test('corrupt.pdf throws PdfExtractionException on fromBytes()', () async {
       final bytes = await _fixture('corrupt.pdf');
       await expectLater(
         () => PdfDocument.fromBytes(bytes),
-        throwsA(isA<PdfiumException>()),
+        throwsA(isA<PdfExtractionException>()),
       );
     });
 
-    test('password.pdf throws PdfiumException on fromBytes()', () async {
+    test('password.pdf throws PdfExtractionException on fromBytes()', () async {
       final bytes = await _fixture('password.pdf');
       await expectLater(
         () => PdfDocument.fromBytes(bytes),
-        throwsA(isA<PdfiumException>()),
+        throwsA(isA<PdfExtractionException>()),
       );
     });
 

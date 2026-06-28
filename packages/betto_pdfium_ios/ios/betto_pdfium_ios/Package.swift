@@ -64,7 +64,7 @@ let package = Package(
         .binaryTarget(
             name: "pdfium_binary",
             url: "https://github.com/bettongia/pdfium/releases/download/bblanchon-chromium-7906/pdfium.xcframework.zip",
-            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+            checksum: "26595793be1323fcb887941b4111cde53050ce13284b0573058861ee298fddd9"
         ),
     ]
 )
