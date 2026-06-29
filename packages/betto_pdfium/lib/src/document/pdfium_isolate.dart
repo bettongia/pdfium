@@ -2937,6 +2937,12 @@ String? _defaultDylibPathOrNull() {
     if (File(legacy).existsSync()) return legacy;
     return null;
   }
+  if (Platform.isWindows) {
+    // Legacy path populated by scripts/fetch_pdfium.sh (Git Bash / WSL).
+    const legacy = 'third_party/pdfium_bin/windows_x64/pdfium.dll';
+    if (File(legacy).existsSync()) return legacy;
+    return null;
+  }
   return null;
 }
 // coverage:ignore-end
@@ -2961,6 +2967,10 @@ String? _defaultDylibPathOrNull() {
 ///   - **macOS**: tries the Flutter framework bundle path first, then probes
 ///     several absolute candidate paths (dart build output, dart test staged
 ///     location, hook cache).
+///   - **Windows**: probes absolute candidate paths (dart build output, dart
+///     test staged location, hook cache) mirroring Linux, then falls back to
+///     the bare DLL name as a last resort (only works if `pdfium.dll` is on
+///     the DLL search path via `PATH`). Windows does not use a `lib` prefix.
 ffi.DynamicLibrary _openLibrary() {
   // coverage:ignore-start
   // iOS and Android branches are only reachable on physical/emulated devices;
@@ -3043,9 +3053,37 @@ ffi.DynamicLibrary _openLibrary() {
     // path attempt so the message mentions the expected bundle layout.
     return ffi.DynamicLibrary.open('pdfium.framework/pdfium');
   }
+  if (Platform.isWindows) {
+    // Windows is a DynamicLoadingBundled desktop platform like macOS/Linux.
+    // dart test, dart run (JIT), and dart build each stage the bundled asset
+    // to different locations — probe absolute paths before trying bare name.
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final cwd = Directory.current.path;
+    const dllName = 'pdfium.dll';
+    final candidates = <String>[
+      // dart build cli: bundle\bin\<exe> → bundle\lib\pdfium.dll
+      '$exeDir/../lib/$dllName',
+      // dart test / dart run (JIT): staged to .dart_tool/lib/
+      '$cwd/.dart_tool/lib/$dllName',
+      // Hook cache direct path (fallback if staging hasn't copied the file).
+      '$cwd/.dart_tool/betto_pdfium/$bblanchonBuild/$dllName',
+    ];
+    for (final path in candidates) {
+      final f = File(path);
+      if (f.existsSync()) {
+        try {
+          return ffi.DynamicLibrary.open(f.absolute.path);
+        } catch (_) {
+          // Try next candidate.
+        }
+      }
+    }
+    // Last resort: bare name — only works if pdfium.dll is on PATH.
+    return ffi.DynamicLibrary.open(dllName);
+  }
   throw UnsupportedError(
     'betto_pdfium: unsupported platform ${Platform.operatingSystem}. '
-    'Supported: macOS arm64, Linux x64/arm64, Android, iOS.',
+    'Supported: macOS arm64, Linux x64/arm64, Windows x64, Android, iOS.',
   );
   // coverage:ignore-end
 }

@@ -64,6 +64,12 @@ case "$OS" in
         LIB_IN_TGZ="lib/libpdfium.so"
         INSTALL_NAME="libpdfium.so"
         ;;
+    MINGW*|MSYS*|Windows_NT)
+        ARTIFACT="pdfium-win-x64.tgz"
+        LIB_IN_TGZ="lib/pdfium.dll"
+        INSTALL_DIR="$PDFIUM_BIN/windows_x64"
+        INSTALL_NAME="pdfium.dll"
+        ;;
     *) echo "fetch_pdfium: unsupported OS: $OS"; exit 1 ;;
 esac
 
@@ -85,6 +91,7 @@ case "$OS" in
             aarch64) PLATFORM_KEY="linux-arm64" ;;
         esac
         ;;
+    MINGW*|MSYS*|Windows_NT) PLATFORM_KEY="windows-x64" ;;
 esac
 
 # Read expected checksum from version_pdfium.json.

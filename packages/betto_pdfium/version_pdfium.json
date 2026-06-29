@@ -25,6 +25,11 @@
       "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-android-x64.tgz",
       "lib_path": "lib/libpdfium.so",
       "sha256": "74a8e8dd8d17cf27048b856e5e2a5a9cc1cff9e91ea4dd81efbcc6aa41d589db"
+    },
+    "windows-x64": {
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-win-x64.tgz",
+      "lib_path": "lib/pdfium.dll",
+      "sha256": "a60740ba8e9bddefa5a53113e25f62364995383d2eed032bcfc60f17209afe47"
     }
   }
 }

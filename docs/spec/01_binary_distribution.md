@@ -44,7 +44,7 @@ Download URL: `https://github.com/bblanchon/pdfium-binaries/releases/download/ch
 | `pdfium-android-arm64.tgz` | `lib/libpdfium.so` |
 | `pdfium-android-x64.tgz` | `lib/libpdfium.so` |
 | `pdfium-wasm.tgz` | `lib/libpdfium.{wasm,js}` (future) |
-| `pdfium-win-x64.tgz` | `lib/pdfium.dll` (future) |
+| `pdfium-win-x64.tgz` | `lib/pdfium.dll` |
 
 Each tarball also contains `VERSION` (`MAJOR=151 MINOR=0 BUILD=NNNN PATCH=0`)
 and `args.gn`.
@@ -66,6 +66,8 @@ third_party/pdfium_bin/
     libpdfium.so            ← loaded by Dart FFI on Linux x86_64
   linux_arm64/
     libpdfium.so            ← loaded by Dart FFI on Linux arm64
+  windows_x64/
+    pdfium.dll              ← loaded by Dart FFI on Windows x64 (no lib prefix)
   VERSION                   ← single line: the installed bblanchon build number
 third_party/pdfium/
   public/                   ← PDFium public headers (extracted from the platform tarball)
@@ -152,6 +154,7 @@ The manifest schema:
     },
     "linux-x64":    { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
     "linux-arm64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
+    "windows-x64":  { "url": "...", "lib_path": "lib/pdfium.dll",      "sha256": "..." },
     "android-arm64":{ "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
     "android-x64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." }
   }
@@ -171,6 +174,7 @@ The manifest schema:
 | `macos-arm64`   | `hook/build.dart`                     | Native-assets dylib staging       |
 | `linux-arm64`   | `hook/build.dart`                     | Native-assets .so staging         |
 | `linux-x64`     | `hook/build.dart`                     | Native-assets .so staging         |
+| `windows-x64`   | `hook/build.dart`                     | Native-assets DLL staging         |
 | `android-arm64` | `fetch_mobile_binaries.sh`            | Android integration test app only |
 | `android-x64`   | `fetch_mobile_binaries.sh`            | Android integration test app only |
 
@@ -188,7 +192,7 @@ The manifest schema:
 |---|---|---|
 | iOS | Hook skipped | Dynamic xcframework via SPM binaryTarget; `DynamicLibrary.process()` at runtime |
 | Android | Hook skipped | `.so` in `jniLibs/` via `fetch_mobile_binaries.sh`; `DynamicLibrary.open('libpdfium.so')` at runtime |
-| Windows | Hook skipped | Not yet supported |
+| Windows | Supported | `pdfium.dll` staged via `hook/build.dart` like macOS/Linux; no `codesign` step (not applicable on Windows) |
 
 ## iOS xcframework
 

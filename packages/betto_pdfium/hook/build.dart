@@ -57,7 +57,11 @@
 ///   `fetch_mobile_binaries.sh` and loaded with
 ///   `DynamicLibrary.open('libpdfium.so')` at runtime. No CodeAsset is emitted.
 ///
-/// - **Windows**: not yet supported.
+/// - **Windows**: `pdfium.dll` is staged via the same download path as macOS
+///   and Linux. `DynamicLibrary.open` on Windows does not use a `lib` prefix
+///   or `.so`/`.dylib` extension — the DLL name is `pdfium.dll` directly.
+///   The runtime load path probes absolute candidate paths (dart build output,
+///   dart test staged location, hook cache) with a bare-name last resort.
 library;
 
 import 'dart:convert';
@@ -104,15 +108,10 @@ Future<void> _buildHook(BuildInput input, BuildOutputBuilder output) async {
     return;
   }
 
-  if (os == OS.windows) {
-    print('betto_pdfium: Windows is not yet supported. No CodeAsset emitted.');
-    return;
-  }
-
   await _buildDesktop(input, output, os, arch, packageRoot);
 }
 
-// ── Desktop (macOS, Linux) ────────────────────────────────────────────────────
+// ── Desktop (macOS, Linux, Windows) ──────────────────────────────────────────
 
 Future<void> _buildDesktop(
   BuildInput input,
@@ -127,7 +126,12 @@ Future<void> _buildDesktop(
   final expectedSha = platformEntry['sha256'] as String;
   final libPath = platformEntry['lib_path'] as String;
 
-  final libFileName = os == OS.macOS ? 'libpdfium.dylib' : 'libpdfium.so';
+  // Derive the destination filename from the last path segment of lib_path so
+  // that the correct name is used for any platform without a hardcoded list.
+  // lib/libpdfium.dylib → libpdfium.dylib
+  // lib/libpdfium.so    → libpdfium.so
+  // lib/pdfium.dll      → pdfium.dll
+  final libFileName = libPath.split('/').last;
   final cacheDir = _cacheDirectory(packageRoot, build);
   final libFile = File('${cacheDir.path}/$libFileName');
 
@@ -173,6 +177,7 @@ String _readBblanchonBuild(Uri packageRoot) {
 ///   - macOS arm64   → `"macos-arm64"`
 ///   - Linux arm64   → `"linux-arm64"`
 ///   - Linux x64     → `"linux-x64"`
+///   - Windows x64   → `"windows-x64"`
 Map<String, dynamic> _loadPlatformManifest(
   OS os,
   Architecture arch,
@@ -212,6 +217,9 @@ String _platformKey(OS os, Architecture arch) {
   }
   if (os == OS.linux) {
     return arch == Architecture.arm64 ? 'linux-arm64' : 'linux-x64';
+  }
+  if (os == OS.windows) {
+    return 'windows-x64';
   }
   throw UnsupportedError('betto_pdfium: unsupported OS for hook: $os');
 }
