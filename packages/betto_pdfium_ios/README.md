@@ -1,14 +1,15 @@
 # betto_pdfium_ios
 
-Flutter iOS companion plugin for [`betto_pdfium`](https://pub.dev/packages/betto_pdfium).
+Flutter iOS companion plugin for
+[`betto_pdfium`](https://pub.dev/packages/betto_pdfium).
 
 ## What this package does
 
 `betto_pdfium` loads PDFium via `DynamicLibrary.process()` on iOS, which
 requires PDFium's symbols to already be present in the process. iOS apps link
-libraries statically via the Swift Package Manager (SPM) — there is no
-`dlopen` at runtime. This package carries the PDFium static xcframework as an
-SPM binary target so that Flutter wires it into the app at link time.
+libraries statically via the Swift Package Manager (SPM) — there is no `dlopen`
+at runtime. This package carries the PDFium static xcframework as an SPM binary
+target so that Flutter wires it into the app at link time.
 
 Without this package, `DynamicLibrary.process()` will fail to resolve any
 `FPDF_*` symbols on iOS.
@@ -49,9 +50,9 @@ xcframework and ensures all PDFium symbols are present in the process image.
 
 ## Platform support
 
-This package provides iOS support only. On other platforms, `betto_pdfium`
-loads PDFium via native-assets (`dart:ffi` / `DynamicLibrary.open`) and does
-not require this companion package.
+This package provides iOS support only. On other platforms, `betto_pdfium` loads
+PDFium via native-assets (`dart:ffi` / `DynamicLibrary.open`) and does not
+require this companion package.
 
 ## Versioning
 
@@ -68,6 +69,6 @@ A version mismatch between the two packages could cause runtime symbol
 resolution failures if the xcframework and the Dart FFI bindings are at
 different PDFium upstream commits.
 
-## License
+## Licenses
 
-Apache 2.0 — see [LICENSE](../../LICENSE).
+This package is provided under Apache 2.0 — see [LICENSE](../../LICENSE).

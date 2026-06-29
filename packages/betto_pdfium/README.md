@@ -10,16 +10,16 @@ downloaded automatically by the native-assets hook on first use.
 
 ## Platform support
 
-| Platform      | Status                   |
-|---------------|--------------------------|
-| macOS arm64   | Supported                |
-| Linux x86\_64 | Supported                |
-| Linux arm64   | Supported                |
-| iOS arm64     | Supported (xcframework)  |
-| Android arm64 | Supported                |
-| Android x86\_64 | Supported              |
-| Windows x86\_64 | Not yet supported      |
-| Web (WASM)    | Not yet supported        |
+| Platform       | Status                  |
+| -------------- | ----------------------- |
+| macOS arm64    | Supported               |
+| Linux x86_64   | Supported               |
+| Linux arm64    | Supported               |
+| iOS arm64      | Supported (xcframework) |
+| Android arm64  | Supported               |
+| Android x86_64 | Supported               |
+| Windows x86_64 | Not yet supported       |
+| Web (WASM)     | Not yet supported       |
 
 ## Installation
 
@@ -206,8 +206,8 @@ assert(result.pixels.length == result.pixelWidth * result.pixelHeight * 4);
 ```
 
 In a Flutter app, decode the BGRA buffer into a `dart:ui Image` via
-`decodeImageFromPixels`. The rendering surface is intentionally kept at
-the pure-Dart layer so it can be used outside Flutter.
+`decodeImageFromPixels`. The rendering surface is intentionally kept at the
+pure-Dart layer so it can be used outside Flutter.
 
 Optional flags:
 
@@ -274,8 +274,8 @@ if (bitmap != null) {
 }
 ```
 
-For bulk extraction, pass `includeBitmap: true` to `extractImages()` to
-retrieve bitmaps in a single stream pass.
+For bulk extraction, pass `includeBitmap: true` to `extractImages()` to retrieve
+bitmaps in a single stream pass.
 
 ### Search
 
@@ -335,17 +335,17 @@ final dpr = MediaQuery.of(context).devicePixelRatio;
 final thumb = await doc.getThumbnail(0, maxDimension: (256 * dpr).round());
 ```
 
-Pass `generateIfAbsent: false` to return `null` rather than rendering a
-fallback when no embedded thumbnail exists.
+Pass `generateIfAbsent: false` to return `null` rather than rendering a fallback
+when no embedded thumbnail exists.
 
 ## Error types
 
-| Exception | When thrown |
-|-----------|-------------|
-| `PdfExtractionException` | `fromBytes()` fails (wrong password, corrupt file) |
-| `PdfiumException` | Unexpected PDFium native failure (allocation, render) |
-| `StateError` | Any method called after `close()` |
-| `RangeError` | Page index out of range, non-positive render dimensions |
+| Exception                | When thrown                                             |
+| ------------------------ | ------------------------------------------------------- |
+| `PdfExtractionException` | `fromBytes()` fails (wrong password, corrupt file)      |
+| `PdfiumException`        | Unexpected PDFium native failure (allocation, render)   |
+| `StateError`             | Any method called after `close()`                       |
+| `RangeError`             | Page index out of range, non-positive render dimensions |
 
 ## Architecture
 
@@ -394,6 +394,17 @@ make android_test
 flutter config --enable-swift-package-manager
 ```
 
-## License
+## Licenses
 
-Apache 2.0 — see [LICENSE](../../LICENSE).
+This package is provided under Apache License, Version 2.0 — see
+[LICENSE](../../LICENSE).
+
+The binaries used by this package are accessed from
+[https://github.com/bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries).
+The repository carries the
+[MIT License](https://github.com/bblanchon/pdfium-binaries/blob/master/LICENSE),
+Copyright 2014-2025 Benoit Blanchon.
+
+[PDFium](https://pdfium.googlesource.com/pdfium/) is licensed under the Apache
+License, Version 2.0 — see
+[PDFium LICENSE](<[../../LICENSE](https://pdfium.googlesource.com/pdfium/+/refs/heads/main/LICENSE)>).
