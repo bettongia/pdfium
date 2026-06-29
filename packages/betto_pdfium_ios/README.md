@@ -19,8 +19,8 @@ Add both packages to your Flutter app's `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  betto_pdfium: ^0.1.0-dev.1
-  betto_pdfium_ios: ^0.1.0-dev.1
+  betto_pdfium: ^0.1.0-dev.2
+  betto_pdfium_ios: ^0.1.0-dev.2
 ```
 
 No additional setup is required. Flutter auto-discovers `betto_pdfium_ios` as a
@@ -60,8 +60,8 @@ bundle the same PDFium build. Always use matching versions:
 
 ```yaml
 dependencies:
-  betto_pdfium: ^0.1.0-dev.1
-  betto_pdfium_ios: ^0.1.0-dev.1
+  betto_pdfium: ^0.1.0-dev.2
+  betto_pdfium_ios: ^0.1.0-dev.2
 ```
 
 A version mismatch between the two packages could cause runtime symbol

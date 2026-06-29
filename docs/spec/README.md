@@ -5,7 +5,7 @@ toc-title: "Contents"
 ...
 
 - **Package:** `betto_pdfium`
-- **Version:** 0.1.0-dev.1
+- **Version:** 0.1.0-dev.2
 - **Dart SDK:** ≥ 3.12.0
 
 # Overview

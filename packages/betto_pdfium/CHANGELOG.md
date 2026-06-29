@@ -1,3 +1,7 @@
+## 0.1.0-dev.2 — 2026-06-29
+
+Version bump — no API changes.
+
 ## 0.1.0-dev.1 — 2026-06-29
 
 First developer preview. All core PDF operations are implemented and tested

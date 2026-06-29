@@ -1,3 +1,7 @@
+## 0.1.0-dev.2
+
+Version bump — no API changes.
+
 ## 0.1.0-dev.1
 
 - Initial version. Carries the PDFium static xcframework as an SPM binary target

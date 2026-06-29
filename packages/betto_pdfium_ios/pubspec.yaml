@@ -17,7 +17,7 @@ description: >
   Flutter iOS companion plugin for betto_pdfium. Carries the PDFium static
   xcframework SPM dependency.
 
-version: 0.1.0-dev.1
+version: 0.1.0-dev.2
 homepage: https://bettongia.github.io/pdfium/
 repository: https://github.com/bettongia/pdfium
 issue_tracker: https://github.com/bettongia/pdfium/issues
