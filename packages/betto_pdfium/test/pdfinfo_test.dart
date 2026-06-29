@@ -52,194 +52,204 @@ void main() {
   // the test body from running; the group-level skip: does.
   group(
     'pdfinfo CLI --toc flag',
-    skip:
-        Platform.isWindows
-            ? 'CLI subprocess tests skipped on Windows: dart run cannot '
-                'stage pdfium.dll while it is loaded by the test process.'
-            : null,
+    skip: Platform.isWindows
+        ? 'CLI subprocess tests skipped on Windows: dart run cannot '
+              'stage pdfium.dll while it is loaded by the test process.'
+        : null,
     () {
-    test(
-      '--toc on a document with no bookmarks prints "(no bookmarks)"',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not found — skipping native tests.');
-          return;
-        }
+      test(
+        '--toc on a document with no bookmarks prints "(no bookmarks)"',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
 
-        final result = await _runPdfinfo('no_toc.pdf', flags: ['--toc']);
-        expect(result.exitCode, equals(0));
-        final out = result.stdout as String;
-        expect(out, contains('Table of Contents'));
-        expect(out, contains('(no bookmarks)'));
-      },
-    );
-
-    test(
-      '--toc on a document with flat bookmarks prints each entry with page number',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not found — skipping native tests.');
-          return;
-        }
-
-        final result = await _runPdfinfo('flat_toc.pdf', flags: ['--toc']);
-        expect(result.exitCode, equals(0));
-        final out = result.stdout as String;
-        expect(out, contains('Table of Contents'));
-        expect(out, contains('Chapter 1'));
-        expect(out, contains('page 1'));
-        expect(out, contains('Chapter 2'));
-        expect(out, contains('page 2'));
-        expect(out, contains('Chapter 3'));
-        expect(out, contains('page 3'));
-      },
-    );
-
-    test(
-      '--toc on nested bookmarks prints children with deeper indentation',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not found — skipping native tests.');
-          return;
-        }
-
-        final result = await _runPdfinfo('nested_toc.pdf', flags: ['--toc']);
-        expect(result.exitCode, equals(0));
-        final out = result.stdout as String;
-        expect(out, contains('Part I'));
-        expect(out, contains('Chapter 1'));
-        expect(out, contains('Chapter 2'));
-        expect(out, contains('Part II'));
-        expect(out, contains('Chapter 3'));
-        expect(out, contains('Chapter 4'));
-
-        // Children must be indented more than their parent.
-        final lines = out.split('\n');
-        final partILine = lines.firstWhere(
-          (l) => l.contains('Part I'),
-          orElse: () => '',
-        );
-        final ch1Line = lines.firstWhere(
-          (l) => l.contains('Chapter 1'),
-          orElse: () => '',
-        );
-        expect(partILine, isNotEmpty, reason: 'Part I should appear in output');
-        expect(
-          ch1Line,
-          isNotEmpty,
-          reason: 'Chapter 1 should appear in output',
-        );
-        // Chapter 1 should have more leading spaces than Part I.
-        final partIIndent = partILine.length - partILine.trimLeft().length;
-        final ch1Indent = ch1Line.length - ch1Line.trimLeft().length;
-        expect(ch1Indent, greaterThan(partIIndent));
-      },
-    );
-
-    test('--toc --json includes "toc" key with entries array', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
-
-      final result = await _runPdfinfo(
-        'flat_toc.pdf',
-        flags: ['--toc', '--json'],
+          final result = await _runPdfinfo('no_toc.pdf', flags: ['--toc']);
+          expect(result.exitCode, equals(0));
+          final out = result.stdout as String;
+          expect(out, contains('Table of Contents'));
+          expect(out, contains('(no bookmarks)'));
+        },
       );
-      expect(result.exitCode, equals(0));
-      final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-      expect(json, contains('toc'));
-      final toc = json['toc'] as List<dynamic>;
-      expect(toc, hasLength(3));
-      expect((toc[0] as Map<String, dynamic>)['title'], equals('Chapter 1'));
-      expect((toc[0] as Map<String, dynamic>)['pageIndex'], equals(0));
-      expect((toc[1] as Map<String, dynamic>)['title'], equals('Chapter 2'));
-      expect((toc[1] as Map<String, dynamic>)['pageIndex'], equals(1));
-    });
 
-    test('--json without --toc omits the "toc" key', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
+      test(
+        '--toc on a document with flat bookmarks prints each entry with page number',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
 
-      final result = await _runPdfinfo('flat_toc.pdf', flags: ['--json']);
-      expect(result.exitCode, equals(0));
-      final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-      expect(json, isNot(contains('toc')));
-    });
+          final result = await _runPdfinfo('flat_toc.pdf', flags: ['--toc']);
+          expect(result.exitCode, equals(0));
+          final out = result.stdout as String;
+          expect(out, contains('Table of Contents'));
+          expect(out, contains('Chapter 1'));
+          expect(out, contains('page 1'));
+          expect(out, contains('Chapter 2'));
+          expect(out, contains('page 2'));
+          expect(out, contains('Chapter 3'));
+          expect(out, contains('page 3'));
+        },
+      );
 
-    test(
-      '--toc --json on a document with no bookmarks gives empty toc array',
-      () async {
+      test(
+        '--toc on nested bookmarks prints children with deeper indentation',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
+
+          final result = await _runPdfinfo('nested_toc.pdf', flags: ['--toc']);
+          expect(result.exitCode, equals(0));
+          final out = result.stdout as String;
+          expect(out, contains('Part I'));
+          expect(out, contains('Chapter 1'));
+          expect(out, contains('Chapter 2'));
+          expect(out, contains('Part II'));
+          expect(out, contains('Chapter 3'));
+          expect(out, contains('Chapter 4'));
+
+          // Children must be indented more than their parent.
+          final lines = out.split('\n');
+          final partILine = lines.firstWhere(
+            (l) => l.contains('Part I'),
+            orElse: () => '',
+          );
+          final ch1Line = lines.firstWhere(
+            (l) => l.contains('Chapter 1'),
+            orElse: () => '',
+          );
+          expect(
+            partILine,
+            isNotEmpty,
+            reason: 'Part I should appear in output',
+          );
+          expect(
+            ch1Line,
+            isNotEmpty,
+            reason: 'Chapter 1 should appear in output',
+          );
+          // Chapter 1 should have more leading spaces than Part I.
+          final partIIndent = partILine.length - partILine.trimLeft().length;
+          final ch1Indent = ch1Line.length - ch1Line.trimLeft().length;
+          expect(ch1Indent, greaterThan(partIIndent));
+        },
+      );
+
+      test('--toc --json includes "toc" key with entries array', () async {
         if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final result = await _runPdfinfo(
-          'no_toc.pdf',
+          'flat_toc.pdf',
           flags: ['--toc', '--json'],
         );
         expect(result.exitCode, equals(0));
         final json =
             jsonDecode(result.stdout as String) as Map<String, dynamic>;
         expect(json, contains('toc'));
-        expect(json['toc'] as List<dynamic>, isEmpty);
-      },
-    );
+        final toc = json['toc'] as List<dynamic>;
+        expect(toc, hasLength(3));
+        expect((toc[0] as Map<String, dynamic>)['title'], equals('Chapter 1'));
+        expect((toc[0] as Map<String, dynamic>)['pageIndex'], equals(0));
+        expect((toc[1] as Map<String, dynamic>)['title'], equals('Chapter 2'));
+        expect((toc[1] as Map<String, dynamic>)['pageIndex'], equals(1));
+      });
 
-    test('--toc --json on nested bookmarks includes children arrays', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
+      test('--json without --toc omits the "toc" key', () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
 
-      final result = await _runPdfinfo(
-        'nested_toc.pdf',
-        flags: ['--toc', '--json'],
+        final result = await _runPdfinfo('flat_toc.pdf', flags: ['--json']);
+        expect(result.exitCode, equals(0));
+        final json =
+            jsonDecode(result.stdout as String) as Map<String, dynamic>;
+        expect(json, isNot(contains('toc')));
+      });
+
+      test(
+        '--toc --json on a document with no bookmarks gives empty toc array',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
+
+          final result = await _runPdfinfo(
+            'no_toc.pdf',
+            flags: ['--toc', '--json'],
+          );
+          expect(result.exitCode, equals(0));
+          final json =
+              jsonDecode(result.stdout as String) as Map<String, dynamic>;
+          expect(json, contains('toc'));
+          expect(json['toc'] as List<dynamic>, isEmpty);
+        },
       );
-      expect(result.exitCode, equals(0));
-      final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-      final toc = json['toc'] as List<dynamic>;
-      expect(toc, hasLength(2));
 
-      final partI = toc[0] as Map<String, dynamic>;
-      expect(partI['title'], equals('Part I'));
-      expect(partI, contains('children'));
-      final children = partI['children'] as List<dynamic>;
-      expect(children, hasLength(2));
-      expect(
-        (children[0] as Map<String, dynamic>)['title'],
-        equals('Chapter 1'),
+      test(
+        '--toc --json on nested bookmarks includes children arrays',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
+
+          final result = await _runPdfinfo(
+            'nested_toc.pdf',
+            flags: ['--toc', '--json'],
+          );
+          expect(result.exitCode, equals(0));
+          final json =
+              jsonDecode(result.stdout as String) as Map<String, dynamic>;
+          final toc = json['toc'] as List<dynamic>;
+          expect(toc, hasLength(2));
+
+          final partI = toc[0] as Map<String, dynamic>;
+          expect(partI['title'], equals('Part I'));
+          expect(partI, contains('children'));
+          final children = partI['children'] as List<dynamic>;
+          expect(children, hasLength(2));
+          expect(
+            (children[0] as Map<String, dynamic>)['title'],
+            equals('Chapter 1'),
+          );
+        },
       );
-    });
 
-    test('combining --toc with --text and --annot succeeds', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
+      test('combining --toc with --text and --annot succeeds', () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
 
-      final result = await _runPdfinfo(
-        'flat_toc.pdf',
-        flags: ['--toc', '--text', '--annot'],
-      );
-      expect(result.exitCode, equals(0));
-      final out = result.stdout as String;
-      expect(out, contains('Table of Contents'));
-      expect(out, contains('Chapter 1'));
-    });
+        final result = await _runPdfinfo(
+          'flat_toc.pdf',
+          flags: ['--toc', '--text', '--annot'],
+        );
+        expect(result.exitCode, equals(0));
+        final out = result.stdout as String;
+        expect(out, contains('Table of Contents'));
+        expect(out, contains('Chapter 1'));
+      });
 
-    test('exit code 1 for missing file even with --toc flag', () async {
-      final result = await _runPdfinfo(
-        'nonexistent_file.pdf',
-        flags: ['--toc'],
-      );
-      expect(result.exitCode, equals(1));
-      expect(result.stderr as String, contains('not found'));
-    });
-  });
+      test('exit code 1 for missing file even with --toc flag', () async {
+        final result = await _runPdfinfo(
+          'nonexistent_file.pdf',
+          flags: ['--toc'],
+        );
+        expect(result.exitCode, equals(1));
+        expect(result.stderr as String, contains('not found'));
+      });
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // Direct API tests for PdfDocument.getDocumentInfo()

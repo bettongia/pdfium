@@ -16,3 +16,4 @@ dist/
 *.log
 build-logs/
 doc/
+logs/

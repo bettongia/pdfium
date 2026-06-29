@@ -805,118 +805,126 @@ void main() {
   // the test body from running; the group-level skip: does.
   group(
     'pdfinfo CLI --search flag',
-    skip:
-        Platform.isWindows
-            ? 'CLI subprocess tests skipped on Windows: dart run cannot '
-                'stage pdfium.dll while it is loaded by the test process.'
-            : null,
+    skip: Platform.isWindows
+        ? 'CLI subprocess tests skipped on Windows: dart run cannot '
+              'stage pdfium.dll while it is loaded by the test process.'
+        : null,
     () {
-    test('--search with a matching query prints results to stdout', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
-
-      final result = await _runPdfinfo(
-        'search_single.pdf',
-        flags: ['--search', 'fox'],
-      );
-      expect(result.exitCode, equals(0));
-      final stdout = result.stdout as String;
-      // Should contain page and match info.
-      expect(stdout.toLowerCase(), contains('fox'));
-    });
-
-    test('--search with no matches prints "(no matches)" or similar', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
-
-      final result = await _runPdfinfo(
-        'search_single.pdf',
-        flags: ['--search', 'zzz_not_in_document'],
-      );
-      expect(result.exitCode, equals(0));
-      final stdout = result.stdout as String;
-      expect(stdout, contains('no matches'));
-    });
-
-    test('--search --json includes "search" key with match array', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
-
-      final result = await _runPdfinfo(
-        'search_single.pdf',
-        flags: ['--search', 'fox', '--json'],
-      );
-      expect(result.exitCode, equals(0));
-      final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-      expect(json, contains('search'));
-      final matches = json['search'] as List<dynamic>;
-      expect(matches, hasLength(3));
-      final first = matches[0] as Map<String, dynamic>;
-      expect(first, contains('pageIndex'));
-      expect(first, contains('charIndex'));
-      expect(first, contains('charCount'));
-      expect(first, contains('rects'));
-      expect(first['pageIndex'], equals(0));
-    });
-
-    test('--json without --search omits the "search" key', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
-
-      final result = await _runPdfinfo('search_single.pdf', flags: ['--json']);
-      expect(result.exitCode, equals(0));
-      final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-      expect(json, isNot(contains('search')));
-    });
-
-    test(
-      '--search --json on multipage fixture includes matches from all pages',
-      () async {
+      test('--search with a matching query prints results to stdout', () async {
         if (!nativeAvailable()) {
           markTestSkipped('PDFium dylib not found — skipping native tests.');
           return;
         }
 
         final result = await _runPdfinfo(
-          'search_multipage.pdf',
-          flags: ['--search', 'gamma', '--json'],
+          'search_single.pdf',
+          flags: ['--search', 'fox'],
+        );
+        expect(result.exitCode, equals(0));
+        final stdout = result.stdout as String;
+        // Should contain page and match info.
+        expect(stdout.toLowerCase(), contains('fox'));
+      });
+
+      test(
+        '--search with no matches prints "(no matches)" or similar',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
+
+          final result = await _runPdfinfo(
+            'search_single.pdf',
+            flags: ['--search', 'zzz_not_in_document'],
+          );
+          expect(result.exitCode, equals(0));
+          final stdout = result.stdout as String;
+          expect(stdout, contains('no matches'));
+        },
+      );
+
+      test('--search --json includes "search" key with match array', () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
+
+        final result = await _runPdfinfo(
+          'search_single.pdf',
+          flags: ['--search', 'fox', '--json'],
         );
         expect(result.exitCode, equals(0));
         final json =
             jsonDecode(result.stdout as String) as Map<String, dynamic>;
+        expect(json, contains('search'));
         final matches = json['search'] as List<dynamic>;
-        // "gamma" appears on all three pages.
         expect(matches, hasLength(3));
-        final pageIndices = matches
-            .map((m) => (m as Map<String, dynamic>)['pageIndex'])
-            .toList();
-        expect(pageIndices, containsAll([0, 1, 2]));
-      },
-    );
+        final first = matches[0] as Map<String, dynamic>;
+        expect(first, contains('pageIndex'));
+        expect(first, contains('charIndex'));
+        expect(first, contains('charCount'));
+        expect(first, contains('rects'));
+        expect(first['pageIndex'], equals(0));
+      });
 
-    test('--search can be combined with --text flag', () async {
-      if (!nativeAvailable()) {
-        markTestSkipped('PDFium dylib not found — skipping native tests.');
-        return;
-      }
+      test('--json without --search omits the "search" key', () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
 
-      final result = await _runPdfinfo(
-        'search_single.pdf',
-        flags: ['--search', 'fox', '--text'],
+        final result = await _runPdfinfo(
+          'search_single.pdf',
+          flags: ['--json'],
+        );
+        expect(result.exitCode, equals(0));
+        final json =
+            jsonDecode(result.stdout as String) as Map<String, dynamic>;
+        expect(json, isNot(contains('search')));
+      });
+
+      test(
+        '--search --json on multipage fixture includes matches from all pages',
+        () async {
+          if (!nativeAvailable()) {
+            markTestSkipped('PDFium dylib not found — skipping native tests.');
+            return;
+          }
+
+          final result = await _runPdfinfo(
+            'search_multipage.pdf',
+            flags: ['--search', 'gamma', '--json'],
+          );
+          expect(result.exitCode, equals(0));
+          final json =
+              jsonDecode(result.stdout as String) as Map<String, dynamic>;
+          final matches = json['search'] as List<dynamic>;
+          // "gamma" appears on all three pages.
+          expect(matches, hasLength(3));
+          final pageIndices = matches
+              .map((m) => (m as Map<String, dynamic>)['pageIndex'])
+              .toList();
+          expect(pageIndices, containsAll([0, 1, 2]));
+        },
       );
-      expect(result.exitCode, equals(0));
-      final stdout = result.stdout as String;
-      // Both text and search output should be present.
-      expect(stdout.toLowerCase(), contains('fox'));
-      expect(stdout.toLowerCase(), contains('text'));
-    });
-  });
+
+      test('--search can be combined with --text flag', () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
+
+        final result = await _runPdfinfo(
+          'search_single.pdf',
+          flags: ['--search', 'fox', '--text'],
+        );
+        expect(result.exitCode, equals(0));
+        final stdout = result.stdout as String;
+        // Both text and search output should be present.
+        expect(stdout.toLowerCase(), contains('fox'));
+        expect(stdout.toLowerCase(), contains('text'));
+      });
+    },
+  );
 }
