@@ -2987,8 +2987,11 @@ ffi.DynamicLibrary _openLibrary() {
     // Strategy 1: Flutter app bundle — the build system wraps
     // DynamicLoadingBundled dylibs in versioned .framework bundles.
     // For libpdfium.dylib the framework name is 'pdfium'.
+    // Must use the @rpath/ prefix so dlopen resolves via LC_RPATH
+    // (@executable_path/../Frameworks) rather than treating the path as
+    // CWD-relative, which would miss Contents/Frameworks/.
     try {
-      return ffi.DynamicLibrary.open('pdfium.framework/pdfium');
+      return ffi.DynamicLibrary.open('@rpath/pdfium.framework/pdfium');
     } catch (_) {
       // Fall through to strategy 2.
     }
@@ -3019,7 +3022,7 @@ ffi.DynamicLibrary _openLibrary() {
 
     // All strategies failed — surface the diagnostic error from the framework
     // path attempt so the message mentions the expected bundle layout.
-    return ffi.DynamicLibrary.open('pdfium.framework/pdfium');
+    return ffi.DynamicLibrary.open('@rpath/pdfium.framework/pdfium');
   }
   if (Platform.isWindows) {
     // Windows is a DynamicLoadingBundled desktop platform like macOS/Linux.
