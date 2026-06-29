@@ -1,3 +1,7 @@
+## 0.1.0-dev.3
+
+In progress
+
 ## 0.1.0-dev.2 — 2026-06-30
 
 Version bump — no API changes. Minor fix to publication config

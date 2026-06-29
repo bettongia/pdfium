@@ -5,7 +5,7 @@ toc-title: "Contents"
 ...
 
 - **Package:** `betto_pdfium`
-- **Version:** 0.1.0-dev.2
+- **Version:** 0.1.0-dev.3
 - **Dart SDK:** ≥ 3.12.0
 
 # Overview
@@ -63,13 +63,13 @@ and in-flight cancellation.
 ### [Testing](10_testing.md)
 
 How to run the Dart test suite, measure coverage, and execute mobile integration
-tests on iOS simulators and Android emulators. Covers the
-`betto_pdfium_ios` companion plugin's role in iOS testing and the
-`integration_test_app/` Flutter app.
+tests on iOS simulators and Android emulators. Covers the `betto_pdfium_ios`
+companion plugin's role in iOS testing and the `integration_test_app/` Flutter
+app.
 
 ### [Releasing](11_releasing.md)
 
-Release process for publishing `betto_pdfium` and `betto_pdfium_ios` to
-pub.dev. Covers lock-step versioning, the required publish order (`betto_pdfium`
-first), dry-run validation, and the rationale for keeping both packages at the
-same version.
+Release process for publishing `betto_pdfium` and `betto_pdfium_ios` to pub.dev.
+Covers lock-step versioning, the required publish order (`betto_pdfium` first),
+dry-run validation, and the rationale for keeping both packages at the same
+version.
