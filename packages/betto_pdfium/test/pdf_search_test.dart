@@ -798,19 +798,19 @@ void main() {
   // 3. CLI integration tests: bin/pdfinfo.dart --search flag
   // ---------------------------------------------------------------------------
 
-  group('pdfinfo CLI --search flag', () {
-    setUp(() {
-      // dart run triggers native-assets bundling which tries to replace
-      // .dart_tool/lib/pdfium.dll — a file already locked by the test process.
-      // Windows does not allow replacing in-use DLLs, so all CLI subprocess
-      // tests are skipped on Windows.
-      if (Platform.isWindows) {
-        markTestSkipped(
-          'CLI subprocess tests skipped on Windows: dart run cannot '
-          'stage pdfium.dll while it is loaded by the test process.',
-        );
-      }
-    });
+  // dart run triggers native-assets bundling which tries to replace
+  // .dart_tool/lib/pdfium.dll — a file already locked by the test process.
+  // Windows does not allow replacing in-use DLLs, so the entire CLI group is
+  // declared with skip: on Windows. markTestSkipped() in setUp() does not stop
+  // the test body from running; the group-level skip: does.
+  group(
+    'pdfinfo CLI --search flag',
+    skip:
+        Platform.isWindows
+            ? 'CLI subprocess tests skipped on Windows: dart run cannot '
+                'stage pdfium.dll while it is loaded by the test process.'
+            : null,
+    () {
     test('--search with a matching query prints results to stdout', () async {
       if (!nativeAvailable()) {
         markTestSkipped('PDFium dylib not found — skipping native tests.');

@@ -148,8 +148,11 @@ Two test limitations exist on Windows that do not affect macOS or Linux:
 invocation triggers native-assets bundling, which tries to delete and replace
 `.dart_tool\lib\pdfium.dll`. Because the `dart test` process already has
 `pdfium.dll` loaded, Windows denies the deletion (`Access is denied`, errno 5).
-There is no runtime workaround. These groups are skipped in `setUp` on
-`Platform.isWindows`. The underlying library functionality (`PdfDocument.search`,
+There is no runtime workaround. These groups are declared with
+`skip: Platform.isWindows ? '...' : null` at the `group()` call site, which
+prevents test bodies from executing entirely (unlike `markTestSkipped()` in
+`setUp`, which marks a test skipped but still runs the body). The underlying
+library functionality (`PdfDocument.search`,
 TOC extraction, etc.) is fully covered by the non-CLI tests that run without
 issue.
 
