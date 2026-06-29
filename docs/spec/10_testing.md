@@ -130,8 +130,34 @@ make emulators_stop
 
 The `cicd.yml` workflow runs `make cicd` (format check, analyze, license check,
 test, and doc site) on Ubuntu. A separate `test` matrix job runs
-`dart test` on macOS arm64 and Linux arm64 after a successful build, verifying
-platform binary downloads on real native runners.
+`dart test` on macOS arm64, Linux arm64, and Windows x64 after a successful
+build, verifying platform binary downloads on real native runners.
 
 Mobile integration tests are not run in CI — they require a connected device or
 simulator and are intended for pre-release validation on a developer machine.
+
+## Platform-specific test constraints
+
+### Windows
+
+Two test limitations exist on Windows that do not affect macOS or Linux:
+
+**CLI subprocess tests are skipped.**
+`pdfinfo_test.dart` and `pdf_search_test.dart` include groups that invoke the
+`pdfinfo` CLI tool via `dart run bin/pdfinfo.dart`. On Windows, each `dart run`
+invocation triggers native-assets bundling, which tries to delete and replace
+`.dart_tool\lib\pdfium.dll`. Because the `dart test` process already has
+`pdfium.dll` loaded, Windows denies the deletion (`Access is denied`, errno 5).
+There is no runtime workaround. These groups are skipped in `setUp` on
+`Platform.isWindows`. The underlying library functionality (`PdfDocument.search`,
+TOC extraction, etc.) is fully covered by the non-CLI tests that run without
+issue.
+
+**`password.pdf` error code differs.**
+On macOS and Linux, loading a password-protected PDF without supplying the
+password causes PDFium to return `FPDF_ERR_PASSWORD` (4), which the isolate
+maps to `PdfError.passwordRequired`. On the bblanchon Windows x64 build,
+the same fixture returns `FPDF_ERR_FORMAT` (3), mapped to
+`PdfError.invalidDocument`. The `error_handling_test.dart` password test
+accepts `PdfError.invalidDocument` on `Platform.isWindows` and
+`PdfError.passwordRequired` on all other platforms.
