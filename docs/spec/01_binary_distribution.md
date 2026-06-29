@@ -43,7 +43,7 @@ Download URL: `https://github.com/bblanchon/pdfium-binaries/releases/download/ch
 | `pdfium-ios-simulator-arm64.tgz` | `lib/libpdfium.dylib` (arm64 simulator) |
 | `pdfium-android-arm64.tgz` | `lib/libpdfium.so` |
 | `pdfium-android-x64.tgz` | `lib/libpdfium.so` |
-| `pdfium-wasm.tgz` | `lib/libpdfium.{wasm,js}` (future) |
+| `pdfium-wasm.tgz` | `lib/pdfium.wasm`, `lib/pdfium.js` |
 | `pdfium-win-x64.tgz` | `bin/pdfium.dll` |
 
 Each tarball also contains `VERSION` (`MAJOR=151 MINOR=0 BUILD=NNNN PATCH=0`)
@@ -156,7 +156,12 @@ The manifest schema:
     "linux-arm64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
     "windows-x64":  { "url": "...", "lib_path": "bin/pdfium.dll",      "sha256": "..." },
     "android-arm64":{ "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
-    "android-x64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." }
+    "android-x64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
+    "wasm": {
+      "url": "https://github.com/bblanchon/pdfium-binaries/.../pdfium-wasm.tgz",
+      "lib_paths": ["lib/pdfium.wasm", "lib/pdfium.js"],
+      "sha256": "<sha256 of .tgz>"
+    }
   }
 }
 ```
@@ -164,7 +169,10 @@ The manifest schema:
 **Notes:**
 - iOS is **excluded** from the manifest — the xcframework is referenced from
   `Package.swift` (downloaded by SPM, not the hook).
-- `lib_path` is the path within the tarball to the shared library.
+- `lib_path` is the path within the tarball to the shared library (single-file
+  platforms).
+- `lib_paths` is used for multi-file artifacts (WASM only). It supersedes
+  `lib_path` when present.
 - SHA-256 is over the `.tgz` file, not the extracted library.
 
 **Consumer mapping:**
@@ -177,6 +185,7 @@ The manifest schema:
 | `windows-x64`   | `hook/build.dart`                     | Native-assets DLL staging         |
 | `android-arm64` | `fetch_mobile_binaries.sh`            | Android integration test app only |
 | `android-x64`   | `fetch_mobile_binaries.sh`            | Android integration test app only |
+| `wasm`          | `fetch_wasm_assets.sh`                | Flutter web / dart2wasm assets    |
 
 `lib/src/pdfium_version.dart` exports two constants:
 
@@ -193,6 +202,64 @@ The manifest schema:
 | iOS | Hook skipped | Dynamic xcframework via SPM binaryTarget; `DynamicLibrary.process()` at runtime |
 | Android | Hook skipped | `.so` in `jniLibs/` via `fetch_mobile_binaries.sh`; `DynamicLibrary.open('libpdfium.so')` at runtime |
 | Windows | Supported | `pdfium.dll` staged via `hook/build.dart` like macOS/Linux; no `codesign` step (not applicable on Windows) |
+| Web/WASM | Hook skipped | Static file assets; distributed via `fetch_wasm_assets.sh` (see below) |
+
+## Web (WASM) assets
+
+bblanchon ships `pdfium-wasm.tgz` alongside every `chromium/NNNN` release.
+The tarball contains two files: `lib/pdfium.wasm` (the WebAssembly binary)
+and `lib/pdfium.js` (the Emscripten glue). No Emscripten build is required.
+
+### Emscripten build details (verified from bblanchon chromium/7906)
+
+- **Module pattern**: global `Module` object (not `MODULARIZE=1`). The script
+  auto-initialises when loaded via `<script>` tag.
+- **Initialization signal**: `Module["onRuntimeInitialized"]` callback is fired
+  when the WASM binary is loaded and `FPDF_InitLibraryWithConfig` can be called.
+- **C function exports**: underscore-prefixed — `Module["_FPDF_CloseDocument"]`,
+  `Module["_FPDF_LoadMemDocument64"]`, `Module["_malloc"]`, `Module["_free"]`,
+  etc. All functions are synchronous (no Asyncify wrapping).
+- **Heap views**: `Module["HEAPU8"]`, `Module["HEAP8"]`, `Module["HEAP16"]`,
+  `Module["HEAPU16"]`, `Module["HEAP32"]`, `Module["HEAPU32"]`,
+  `Module["HEAPF32"]`, `Module["HEAPF64"]` are typed array views into the
+  WASM linear memory.
+- **WASM loading**: `pdfium.js` expects `pdfium.wasm` in the same directory,
+  resolved via `locateFile()`. Both files must be co-located.
+
+### Distribution mechanism
+
+`betto_pdfium` is a pure-Dart package with no Flutter dependency; it cannot
+declare Flutter web assets on the user's behalf. WASM assets are distributed
+as a developer-side static file copy:
+
+1. Run `make fetch_wasm_assets` (or `scripts/fetch_wasm_assets.sh` directly).
+   This downloads `pdfium-wasm.tgz`, verifies its SHA-256, and extracts
+   `pdfium.js` and `pdfium.wasm` to
+   `integration_test_app/web/assets/pdfium/` (default; override via
+   `WASM_OUTPUT_DIR`).
+2. Copy the extracted files to your Flutter web app's `web/assets/pdfium/`
+   directory (or run the script with `WASM_OUTPUT_DIR` pointing there).
+3. The `_document_web.dart` backend loads the module from the relative URL
+   `assets/pdfium/pdfium.js` at the app origin.
+
+Run this once per PDFium version bump, or in CI before a web build. The script
+is idempotent — it skips extraction if the target directory already holds the
+correct build number.
+
+### Runtime behaviour
+
+- **Main-thread blocking**: PDFium WASM runs synchronously on the browser main
+  thread. Large document operations (rendering a complex page, extracting text
+  from a 300-page document) will freeze the browser tab for the duration of
+  the call. Streaming methods yield between pages via
+  `Future.delayed(Duration.zero)`, which reduces jank between pages but does
+  **not** unblock the main thread during a single long PDFium call. A Web
+  Worker offload path is deferred to a future roadmap item.
+- **Memory management**: the PDF byte buffer is copied into the WASM heap via
+  `Module["_malloc"]` and must remain allocated for the entire lifetime of the
+  open document. `Module["_free"]` is called on `close()`. A `Finalizer`
+  (backed by `FinalizationRegistry`) provides a leak-prevention backstop if
+  `close()` is not called explicitly.
 
 ## iOS xcframework
 
@@ -269,11 +336,13 @@ A single-commit workflow (no CI pipeline to wait for):
 2. Run `make repack_ios_xcframework` — downloads bblanchon iOS tarballs, builds
    the `pdfium.xcframework`, and uploads it to a new `bettongia/pdfium` release
    tagged `bblanchon-chromium-<NEW_BUILD>`.
-3. Run `make update_pdfium_manifest` — downloads each bblanchon tarball,
-   computes SHA-256s, rewrites `version_pdfium.json` and
+3. Run `make update_pdfium_manifest` — downloads each bblanchon tarball
+   (including `pdfium-wasm.tgz`), computes SHA-256s, rewrites
+   `version_pdfium.json` (including the `wasm` entry) and
    `lib/src/pdfium_version.dart`, and updates `Package.swift`.
 4. Run `make fetch_pdfium` to install the new binary and headers locally.
-5. Run `make ffi_bindings` if the bblanchon headers differ from the previous
+5. Run `make fetch_wasm_assets` to install the new WASM assets locally.
+6. Run `make ffi_bindings` if the bblanchon headers differ from the previous
    release (PDFium's public API is stable but occasionally updated).
-6. Commit `BBLANCHON_BUILD`, `version_pdfium.json`, `lib/src/pdfium_version.dart`,
+7. Commit `BBLANCHON_BUILD`, `version_pdfium.json`, `lib/src/pdfium_version.dart`,
    `Package.swift`, and any regenerated `lib/src/generated/pdfium_bindings.dart`.

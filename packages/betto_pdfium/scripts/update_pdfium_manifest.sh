@@ -79,6 +79,7 @@ LINUX_ARM64_SHA=$(_fetch_sha "pdfium-linux-arm64.tgz" "$WORK/linux-arm64.tgz")
 ANDROID_ARM64_SHA=$(_fetch_sha "pdfium-android-arm64.tgz" "$WORK/android-arm64.tgz")
 ANDROID_X64_SHA=$(_fetch_sha "pdfium-android-x64.tgz" "$WORK/android-x64.tgz")
 WINDOWS_X64_SHA=$(_fetch_sha "pdfium-win-x64.tgz" "$WORK/win-x64.tgz")
+WASM_SHA=$(_fetch_sha "pdfium-wasm.tgz" "$WORK/wasm.tgz")
 
 # Compute iOS xcframework checksum from the bettongia/pdfium release.
 # Run `make repack_ios_xcframework` first to upload the xcframework.
@@ -133,6 +134,11 @@ cat > version_pdfium.json <<EOF
       "url": "$BBLANCHON_BASE/pdfium-win-x64.tgz",
       "lib_path": "bin/pdfium.dll",
       "sha256": "$WINDOWS_X64_SHA"
+    },
+    "wasm": {
+      "url": "$BBLANCHON_BASE/pdfium-wasm.tgz",
+      "lib_paths": ["lib/pdfium.wasm", "lib/pdfium.js"],
+      "sha256": "$WASM_SHA"
     }
   }
 }
@@ -209,6 +215,7 @@ echo "  linux-arm64 sha256:     $LINUX_ARM64_SHA"
 echo "  android-arm64 sha256:   $ANDROID_ARM64_SHA"
 echo "  android-x64   sha256:   $ANDROID_X64_SHA"
 echo "  windows-x64   sha256:   $WINDOWS_X64_SHA"
+echo "  wasm        sha256:     $WASM_SHA"
 if [ -n "$IOS_XCFRAMEWORK_SHA" ]; then
 echo "  ios xcfw sha256:        $IOS_XCFRAMEWORK_SHA"
 fi

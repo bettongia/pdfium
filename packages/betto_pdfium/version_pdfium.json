@@ -30,6 +30,11 @@
       "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-win-x64.tgz",
       "lib_path": "bin/pdfium.dll",
       "sha256": "a60740ba8e9bddefa5a53113e25f62364995383d2eed032bcfc60f17209afe47"
+    },
+    "wasm": {
+      "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-wasm.tgz",
+      "lib_paths": ["lib/pdfium.wasm", "lib/pdfium.js"],
+      "sha256": "5e88702bc8abbb1c5877a80d48ab7b80dd103eb4b640413a88f00815600e4319"
     }
   }
 }

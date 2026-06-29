@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Unit tests for the stripBitmapStride helper in pdfium_isolate.dart.
+// Unit tests for the stripBitmapStride helper in _bitmap_utils.dart.
 //
-// stripBitmapStride is annotated @visibleForTesting and used by the render-page
-// handler to strip PDFium bitmap row-padding before returning the pixel buffer
-// to the caller. The tests exercise:
+// stripBitmapStride is a shared utility used by both the native (FFI) and web
+// (WASM) backends to strip PDFium bitmap row-padding before returning the
+// pixel buffer to the caller. The tests exercise:
 //   - Fast path: stride == width * 4 (no padding, direct copy).
 //   - Slow path: stride > width * 4 (padding present, row-by-row copy).
 //   - Output length is always exactly width * height * 4.
@@ -26,7 +26,7 @@
 
 import 'dart:typed_data';
 
-import 'package:betto_pdfium/src/document/pdfium_isolate.dart'
+import 'package:betto_pdfium/src/document/_bitmap_utils.dart'
     show stripBitmapStride;
 import 'package:test/test.dart';
 

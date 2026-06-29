@@ -45,11 +45,11 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
-import 'package:meta/meta.dart';
 
 import '../generated/pdfium_bindings.dart';
 import '../pdfium_version.dart';
 import '../rendering/pdf_page_size.dart';
+import '_bitmap_utils.dart';
 import 'isolate_messages.dart';
 import 'pdf_date_parser.dart';
 import 'pdf_types.dart';
@@ -1572,40 +1572,8 @@ void _handleGetPageSize(
   }
 }
 
-/// Copies a PDFium bitmap buffer into a compact BGRA [Uint8List], stripping
-/// any row-padding bytes that PDFium may have added for alignment.
-///
-/// PDFium allocates bitmap rows with alignment padding when `width * 4` is not
-/// a multiple of its internal stride requirement. The [stride] parameter is the
-/// actual byte width of each row in [src] (obtained via
-/// `FPDFBitmap_GetStride`). When `stride == width * 4` there is no padding and
-/// the buffer is copied directly. When `stride > width * 4` the slow path
-/// copies each row individually to produce a compact output buffer.
-///
-/// Parameters:
-///   [src]    — raw pixel buffer from `FPDFBitmap_GetBuffer`, length is
-///              `stride * height`.
-///   [width]  — pixel width of the bitmap.
-///   [height] — pixel height of the bitmap.
-///   [stride] — byte width of a single row (≥ `width * 4`).
-///
-/// Returns a [Uint8List] of exactly `width * height * 4` bytes in BGRA order.
-@visibleForTesting
-Uint8List stripBitmapStride(Uint8List src, int width, int height, int stride) {
-  final expectedStride = width * 4;
-  if (stride == expectedStride) {
-    // Fast path: no padding — copy the contiguous buffer directly.
-    return Uint8List.fromList(src);
-  }
-  // Slow path: strip row padding so the output is a compact BGRA buffer.
-  final dst = Uint8List(width * height * 4);
-  for (var row = 0; row < height; row++) {
-    final srcOffset = row * stride;
-    final dstOffset = row * expectedStride;
-    dst.setRange(dstOffset, dstOffset + expectedStride, src, srcOffset);
-  }
-  return dst;
-}
+// stripBitmapStride is imported from _bitmap_utils.dart — shared by both the
+// native (FFI) and web (WASM) backends. See that file for documentation.
 
 /// Renders a single PDF page to a BGRA pixel buffer.
 ///

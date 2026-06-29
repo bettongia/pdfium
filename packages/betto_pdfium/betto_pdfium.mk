@@ -156,3 +156,57 @@ android_test: sync_fixtures fetch_mobile_binaries
 	$(ADB_BINARY_PATH)/adb wait-for-device
 	cd $(BETTO_ITA) && flutter test integration_test/ --device-id emulator-5554
 .PHONY: android_test
+
+# ---------------------------------------------------------------------------
+# Web (WASM) targets
+#
+# PDFium WASM assets (pdfium.js + pdfium.wasm) are distributed as static
+# files that must be served alongside the Flutter web app. They are not
+# bundled by the native-assets hook (which only runs for native targets).
+#
+# Developer workflow:
+#   make fetch_wasm_assets   — download + verify pdfium-wasm.tgz, extract to
+#                              integration_test_app/web/assets/pdfium/
+#   make web_test            — run the dedicated web test suite in headless Chrome
+#   make web_coverage        — measure and enforce ≥ 90% web coverage
+#
+# WASM_OUTPUT_DIR env var overrides the default output directory for
+# fetch_wasm_assets. Set it to your app's web/assets/pdfium/ directory.
+# ---------------------------------------------------------------------------
+
+# fetch_wasm_assets: download the PDFium WASM + JS assets from bblanchon and
+# place them in integration_test_app/web/assets/pdfium/ (or WASM_OUTPUT_DIR).
+fetch_wasm_assets:
+	cd $(BETTO_PKG) && scripts/fetch_wasm_assets.sh
+.PHONY: fetch_wasm_assets
+
+# web_test: run the dedicated web test suite (test/pdf_document_web_test.dart)
+# in headless Chrome. Requires Chrome to be installed on the host.
+# Fixtures are served from the test/ directory by dart test's local server.
+web_test:
+	cd $(BETTO_PKG) && dart test -p chrome test/pdf_document_web_test.dart
+.PHONY: web_test
+
+# web_coverage: measure web test coverage and enforce ≥ 90% line coverage.
+# Produces lcov data at coverage/web/lcov.info for the browser run.
+# The 90% threshold applies independently of the native coverage gate.
+web_coverage:
+	cd $(BETTO_PKG) && dart test -p chrome --coverage-path=coverage/web/lcov.info test/pdf_document_web_test.dart
+	@if [ -f $(BETTO_PKG)/coverage/web/lcov.info ]; then \
+	  echo "web_coverage: computing web coverage ..."; \
+	  LINES_FOUND=$$(grep -c '^DA:' $(BETTO_PKG)/coverage/web/lcov.info || echo 0); \
+	  LINES_HIT=$$(grep '^DA:' $(BETTO_PKG)/coverage/web/lcov.info | grep -v ',0$$' | wc -l | tr -d '[:space:]'); \
+	  echo "  lines found: $$LINES_FOUND  lines hit: $$LINES_HIT"; \
+	  if [ "$$LINES_FOUND" -gt 0 ]; then \
+	    PCT=$$((LINES_HIT * 100 / LINES_FOUND)); \
+	    echo "  web line coverage: $$PCT%"; \
+	    if [ "$$PCT" -lt 90 ]; then \
+	      echo "web_coverage: FAIL — coverage $$PCT% is below the 90% threshold"; \
+	      exit 1; \
+	    fi; \
+	    echo "web_coverage: PASS ($$PCT% >= 90%)"; \
+	  fi; \
+	else \
+	  echo "web_coverage: skipping — no web lcov.info found; run 'make web_test' first"; \
+	fi
+.PHONY: web_coverage

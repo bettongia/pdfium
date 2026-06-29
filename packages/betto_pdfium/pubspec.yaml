@@ -17,6 +17,7 @@ platforms:
   linux:
   android:
   ios:
+  web:
 
 environment:
   sdk: ^3.12.0

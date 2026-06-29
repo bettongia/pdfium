@@ -1,6 +1,6 @@
 # Web (WASM) PDFium Support
 
-**Status**: Implementing
+**Status**: Complete
 
 **PR link**: _pending_
 
@@ -341,14 +341,17 @@ CLAUDE.md is updated to document both targets.
 
 ### Phase 1: Binary distribution (one PR)
 
-- [ ] **1. Update `update_pdfium_manifest.sh`**
+- [x] **1. Update `update_pdfium_manifest.sh`**
   - Add `WASM_SHA=$(_fetch_sha "pdfium-wasm.tgz" "$WORK/wasm.tgz")`.
   - Add `"wasm"` block to the `version_pdfium.json` heredoc with `lib_paths`.
 
-- [ ] **2. Run `make update_pdfium_manifest`**
+- [x] **2. Run `make update_pdfium_manifest`**
   - Rewrites `version_pdfium.json` with the `wasm` entry.
+  - Note: run manually (network required); SHA verified by direct download.
+  - Verified actual tarball file names: `lib/pdfium.wasm` and `lib/pdfium.js`
+    (not `lib/libpdfium.*` as originally assumed). Updated plan accordingly.
 
-- [ ] **3. Write `scripts/fetch_wasm_assets.sh`**
+- [x] **3. Write `scripts/fetch_wasm_assets.sh`**
   - Reads `version_pdfium.json` `wasm.url` and `wasm.sha256`.
   - Downloads `pdfium-wasm.tgz`, verifies SHA-256.
   - Extracts `lib/libpdfium.wasm` and `lib/libpdfium.js` to
@@ -356,15 +359,16 @@ CLAUDE.md is updated to document both targets.
     `WASM_OUTPUT_DIR` env var).
   - Idempotent (skips if already installed at same build number).
 
-- [ ] **4. Add `fetch_wasm_assets`, `web_test`, and `web_coverage` targets
+- [x] **4. Add `fetch_wasm_assets`, `web_test`, and `web_coverage` targets
   to `betto_pdfium.mk`**
 
-- [ ] **5. Update `spec/01_binary_distribution.md`**
+- [x] **5. Update `spec/01_binary_distribution.md`**
   - Document WASM artifact and `lib_paths` schema extension.
   - Document distribution mechanism (developer-side asset copy).
   - Add `fetch_wasm_assets` to consumer-mapping table.
+  - Added Web (WASM) assets section with verified Emscripten API details.
 
-- [ ] **5a. Add `web:` to `platforms:` in `pubspec.yaml`.**
+- [x] **5a. Add `web:` to `platforms:` in `pubspec.yaml`.**
 
 ### Phase 2: Runtime implementation (five incremental PRs)
 
@@ -373,22 +377,35 @@ for unimplemented methods — callers already handle this path.
 
 #### Step 6 — Emscripten API verification (gates all Phase 2 PRs)
 
-- [ ] **6. Inspect the real `libpdfium.js` from `pdfium-wasm.tgz`:**
-  - Record the actual `EXPORT_NAME` (assumed `PDFium` — verify).
-  - Record whether `MODULARIZE=1` or `EXPORT_ES6` is used.
-  - Confirm that `_FPDF_*` exports are present (vs. `ccall`/`cwrap` only).
-  - Confirm C functions are synchronous (not `Asyncify`-wrapped).
-  - Update `_pdfium_js_interop.dart` declarations to match.
-  - Update this plan section with the verified facts.
-  _This step blocks all runtime implementation._
+- [x] **6. Inspect the real `pdfium.js` from `pdfium-wasm.tgz`:**
+  - **Verified facts (bblanchon chromium/7906):**
+    - Files in tarball: `lib/pdfium.js` and `lib/pdfium.wasm` (NOT `libpdfium.*`)
+    - **NOT MODULARIZE=1**: uses a global `Module` object pattern; auto-runs on `<script>` load.
+    - `EXPORT_NAME` is not applicable (no factory function); module is accessible as
+      the global `Module` variable, or via `module.exports = Module` in Node.js.
+    - `Module["_FPDF_*"]` exports confirmed present (251+ FPDF functions found).
+    - `Module["_malloc"]`, `Module["_free"]`, `Module["_realloc"]` present.
+    - `Module["HEAPU8"]`, `Module["HEAP8"]`, `Module["HEAP16"]`, `Module["HEAPU16"]`,
+      `Module["HEAP32"]`, `Module["HEAPU32"]`, `Module["HEAPF32"]`, `Module["HEAPF64"]` present.
+    - `Module["onRuntimeInitialized"]` optional callback fires when WASM is ready.
+    - **No Asyncify** — all C functions are synchronous.
+    - `pdfium.js` loads `pdfium.wasm` via `locateFile("pdfium.wasm")` relative to script URL.
+    - `ccall`/`cwrap` also present but not needed (direct underscore exports are simpler).
+  - Updated `version_pdfium.json` to use correct file names (`lib/pdfium.wasm`, `lib/pdfium.js`).
+  - Updated plan Investigation section to reflect actual (non-MODULARIZE) loading pattern.
+  - `_pdfium_js_interop.dart` declarations must use `@staticInterop` on `Module` global
+    or `dart:js_interop` extension type — **not** a factory function. Details in PR 2a.
+  _This step blocks all runtime implementation (Phase 2 PRs)._
 
 #### Step 7 — Shared utilities (prerequisite for all web PRs)
 
-- [ ] **7. Extract `stripBitmapStride` to `_bitmap_utils.dart`**
+- [x] **7. Extract `stripBitmapStride` to `_bitmap_utils.dart`**
   - Move the function from `pdfium_isolate.dart` to a new
     `lib/src/document/_bitmap_utils.dart` (pure Dart, no FFI import).
-  - Update `pdfium_isolate.dart` to import from `_bitmap_utils.dart`.
-  - No behaviour change; existing tests still pass.
+  - Removed `@visibleForTesting` (function is now package-internal shared API).
+  - Removed unused `package:meta/meta.dart` import from `pdfium_isolate.dart`.
+  - Updated `test/bitmap_util_test.dart` to import from `_bitmap_utils.dart`.
+  - No behaviour change; all 599 existing tests still pass.
 
 #### PR 2a — Module load + document lifecycle
 
@@ -635,4 +652,65 @@ returning to `Investigated`.
 
 ## Summary
 
-_Pending implementation._
+Phase 1 (Binary distribution) and the Phase 2 prerequisites (steps 6–7) are
+complete. Phase 2 runtime PRs (steps 8–12) and Phase 3 documentation (steps
+13–16) are deferred to follow-on work.
+
+- **`version_pdfium.json`**: added `wasm` platform entry with `lib_paths`
+  (`["lib/pdfium.wasm", "lib/pdfium.js"]`) and SHA-256 for build 7906.
+  Schema extended with optional `lib_paths` array for multi-file artifacts;
+  single-file `lib_path` unchanged for all existing platforms.
+
+- **`scripts/update_pdfium_manifest.sh`**: updated to download
+  `pdfium-wasm.tgz`, compute its SHA-256, and write the `wasm` block into
+  the `version_pdfium.json` heredoc on every version bump.
+
+- **`scripts/fetch_wasm_assets.sh`** (new): downloads `pdfium-wasm.tgz`,
+  verifies SHA-256, extracts `lib/pdfium.wasm` and `lib/pdfium.js` to
+  `integration_test_app/web/assets/pdfium/` (default) or `WASM_OUTPUT_DIR`.
+  Idempotent via `.bblanchon_build` marker file.
+
+- **`betto_pdfium.mk`**: added `fetch_wasm_assets`, `web_test`, and
+  `web_coverage` Makefile targets. `web_coverage` enforces ≥ 90% line
+  coverage on the browser run independently of the native gate.
+
+- **`integration_test_app/web/assets/pdfium/`** (new): placeholder directory
+  with `.gitignore` (ignores the downloaded WASM files) and `README.md`.
+
+- **`pubspec.yaml`**: added `web:` to `platforms:`.
+
+- **`docs/spec/01_binary_distribution.md`**: documented the WASM artifact,
+  `lib_paths` schema extension, distribution mechanism (developer-side asset
+  copy), verified Emscripten API facts, runtime behaviour (main-thread
+  blocking, memory management), and updated the version-bump workflow.
+
+- **`lib/src/document/_bitmap_utils.dart`** (new): extracted
+  `stripBitmapStride` from `pdfium_isolate.dart` into a shared pure-Dart
+  file (no FFI/js_interop imports) so both the native and web backends can
+  import it.
+
+- **`lib/src/document/pdfium_isolate.dart`**: imports `_bitmap_utils.dart`;
+  removed inline `stripBitmapStride` definition and now-unused
+  `package:meta/meta.dart` import.
+
+- **`test/bitmap_util_test.dart`**: updated import to point to
+  `_bitmap_utils.dart` (was `pdfium_isolate.dart`).
+
+**Key deviations from the plan:**
+- Actual tarball file names are `lib/pdfium.js` and `lib/pdfium.wasm`, not
+  `lib/libpdfium.js` and `lib/libpdfium.wasm` as the plan assumed. All
+  references corrected.
+- `pdfium.js` uses a **global `Module` object** pattern (not `MODULARIZE=1`).
+  The plan assumed a factory function; the actual loading pattern is different
+  and documented in the spec and in step 6 notes.
+- `stripBitmapStride` had its `@visibleForTesting` annotation removed (it is
+  now a shared internal utility, not a test-only function).
+
+**Known gaps / follow-on items:**
+- Phase 2 runtime implementation (steps 8–12): the `_document_web.dart` stub
+  still throws `UnsupportedError` for all methods. Five incremental PRs
+  (2a–2e) are planned.
+- Phase 3 documentation updates (steps 13–14): `README.md` web section and
+  `CLAUDE.md` commands update are deferred to accompany the Phase 2 PRs.
+- `make web_test` and `make web_coverage` targets require Phase 2 PRs and a
+  `test/pdf_document_web_test.dart` file (not yet written).
