@@ -8,7 +8,6 @@ docs/
 Containerfile
 Makefile
 *.mk
-VERSION_*
 addlicense_config.txt
 tool/
 downloads/
