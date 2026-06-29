@@ -34,7 +34,9 @@ import 'package:betto_pdfium/src/pdfium_version.dart';
 /// Returns the path to the platform-appropriate PDFium shared library,
 /// or `null` when no binary can be found in any known location.
 String? nativeDylibPath() {
-  if (!Platform.isMacOS && !Platform.isLinux) return null;
+  if (!Platform.isMacOS && !Platform.isLinux && !Platform.isWindows) {
+    return null;
+  }
 
   final candidates = _dylibCandidates();
   for (final path in candidates) {
@@ -47,9 +49,17 @@ String? nativeDylibPath() {
 bool nativeAvailable() => nativeDylibPath() != null;
 
 List<String> _dylibCandidates() {
+  if (Platform.isWindows) {
+    const libName = 'pdfium.dll';
+    return [
+      'third_party/pdfium_bin/windows_x64/$libName',
+      '.dart_tool/lib/$libName',
+      '.dart_tool/betto_pdfium/$bblanchonBuild/$libName',
+    ];
+  }
   if (Platform.isLinux) {
     final arch = Abi.current() == Abi.linuxArm64 ? 'linux_arm64' : 'linux_x64';
-    final libName = 'libpdfium.so';
+    const libName = 'libpdfium.so';
     return [
       'third_party/pdfium_bin/$arch/$libName',
       '.dart_tool/lib/$libName',
