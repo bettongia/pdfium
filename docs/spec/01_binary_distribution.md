@@ -44,7 +44,7 @@ Download URL: `https://github.com/bblanchon/pdfium-binaries/releases/download/ch
 | `pdfium-android-arm64.tgz` | `lib/libpdfium.so` |
 | `pdfium-android-x64.tgz` | `lib/libpdfium.so` |
 | `pdfium-wasm.tgz` | `lib/libpdfium.{wasm,js}` (future) |
-| `pdfium-win-x64.tgz` | `lib/pdfium.dll` |
+| `pdfium-win-x64.tgz` | `bin/pdfium.dll` |
 
 Each tarball also contains `VERSION` (`MAJOR=151 MINOR=0 BUILD=NNNN PATCH=0`)
 and `args.gn`.
@@ -154,7 +154,7 @@ The manifest schema:
     },
     "linux-x64":    { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
     "linux-arm64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
-    "windows-x64":  { "url": "...", "lib_path": "lib/pdfium.dll",      "sha256": "..." },
+    "windows-x64":  { "url": "...", "lib_path": "bin/pdfium.dll",      "sha256": "..." },
     "android-arm64":{ "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." },
     "android-x64":  { "url": "...", "lib_path": "lib/libpdfium.so",    "sha256": "..." }
   }

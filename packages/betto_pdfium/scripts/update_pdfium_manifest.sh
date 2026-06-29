@@ -131,7 +131,7 @@ cat > version_pdfium.json <<EOF
     },
     "windows-x64": {
       "url": "$BBLANCHON_BASE/pdfium-win-x64.tgz",
-      "lib_path": "lib/pdfium.dll",
+      "lib_path": "bin/pdfium.dll",
       "sha256": "$WINDOWS_X64_SHA"
     }
   }

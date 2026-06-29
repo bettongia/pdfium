@@ -28,7 +28,7 @@
     },
     "windows-x64": {
       "url": "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7906/pdfium-win-x64.tgz",
-      "lib_path": "lib/pdfium.dll",
+      "lib_path": "bin/pdfium.dll",
       "sha256": "a60740ba8e9bddefa5a53113e25f62364995383d2eed032bcfc60f17209afe47"
     }
   }

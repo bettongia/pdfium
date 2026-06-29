@@ -130,7 +130,7 @@ Future<void> _buildDesktop(
   // that the correct name is used for any platform without a hardcoded list.
   // lib/libpdfium.dylib → libpdfium.dylib
   // lib/libpdfium.so    → libpdfium.so
-  // lib/pdfium.dll      → pdfium.dll
+  // bin/pdfium.dll      → pdfium.dll
   final libFileName = libPath.split('/').last;
   final cacheDir = _cacheDirectory(packageRoot, build);
   final libFile = File('${cacheDir.path}/$libFileName');

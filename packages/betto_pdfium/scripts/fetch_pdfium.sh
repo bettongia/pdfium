@@ -66,7 +66,7 @@ case "$OS" in
         ;;
     MINGW*|MSYS*|Windows_NT)
         ARTIFACT="pdfium-win-x64.tgz"
-        LIB_IN_TGZ="lib/pdfium.dll"
+        LIB_IN_TGZ="bin/pdfium.dll"
         INSTALL_DIR="$PDFIUM_BIN/windows_x64"
         INSTALL_NAME="pdfium.dll"
         ;;
