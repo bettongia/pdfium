@@ -89,13 +89,18 @@ void main() {
         }
         final bytes = _readFixture('password.pdf');
         // The isolate maps FPDF_ERR_PASSWORD (4) to passwordRequired.
+        // On Windows the bblanchon PDFium build returns FPDF_ERR_FORMAT (3)
+        // for this fixture, mapping to invalidDocument instead.
+        final expectedError = Platform.isWindows
+            ? PdfError.invalidDocument
+            : PdfError.passwordRequired;
         await expectLater(
           () => PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath()),
           throwsA(
             isA<PdfExtractionException>().having(
               (e) => e.error,
               'error',
-              PdfError.passwordRequired,
+              expectedError,
             ),
           ),
         );
