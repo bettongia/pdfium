@@ -112,8 +112,10 @@ make test          # Run tests (dart test — hook downloads binary automaticall
 make analyze       # dart analyze (betto_pdfium) + flutter analyze (betto_pdfium_ios)
 make format        # dart format
 make coverage      # dart test --coverage + genhtml (outputs to site/coverage/)
+make web_test      # dart test -p chrome test/pdf_document_web_test.dart (requires Chrome)
+make web_coverage  # dart test -p chrome --coverage + genhtml; enforces ≥ 90% web coverage
 make pre_commit    # format_check + analyze + analyze_ios + license_check + test
-make cicd          # format_check + analyze + analyze_ios + license_check + test + doc_site
+make cicd          # format_check + analyze + analyze_ios + license_check + test + doc_site + web_coverage
 make license_add   # Add license headers to source files (via addlicense)
 make clean         # Remove site/, dist/, coverage/, *.log
 ```

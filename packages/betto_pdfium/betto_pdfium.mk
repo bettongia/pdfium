@@ -180,17 +180,38 @@ fetch_wasm_assets:
 	cd $(BETTO_PKG) && scripts/fetch_wasm_assets.sh
 .PHONY: fetch_wasm_assets
 
+# stage_wasm_test_assets: copy the WASM assets into test/assets/pdfium/ so that
+# `dart test -p chrome` can serve them. The Chrome test page is served at
+# /test/<name>.html, so `assets/pdfium/pdfium.js` resolves to
+# /test/assets/pdfium/pdfium.js on the test HTTP server.
+#
+# fetch_wasm_assets writes to integration_test_app/web/assets/pdfium/; we
+# symlink from test/assets/pdfium/ to avoid duplicating the ~4 MB WASM binary.
+stage_wasm_test_assets: fetch_wasm_assets
+	@mkdir -p $(BETTO_PKG)/test/assets/pdfium
+	@for f in pdfium.js pdfium.wasm; do \
+	  src=$(BETTO_PKG)/integration_test_app/web/assets/pdfium/$$f; \
+	  dst=$(BETTO_PKG)/test/assets/pdfium/$$f; \
+	  if [ ! -f "$$src" ]; then \
+	    echo "stage_wasm_test_assets: $$src not found — run 'make fetch_wasm_assets' first"; \
+	    exit 1; \
+	  fi; \
+	  ln -sf "$(CURDIR)/$$src" "$$dst" 2>/dev/null || cp "$$src" "$$dst"; \
+	done
+	@echo "stage_wasm_test_assets: WASM assets staged at $(BETTO_PKG)/test/assets/pdfium/"
+.PHONY: stage_wasm_test_assets
+
 # web_test: run the dedicated web test suite (test/pdf_document_web_test.dart)
 # in headless Chrome. Requires Chrome to be installed on the host.
 # Fixtures are served from the test/ directory by dart test's local server.
-web_test:
+web_test: stage_wasm_test_assets
 	cd $(BETTO_PKG) && dart test -p chrome test/pdf_document_web_test.dart
 .PHONY: web_test
 
 # web_coverage: measure web test coverage and enforce ≥ 90% line coverage.
 # Produces lcov data at coverage/web/lcov.info for the browser run.
 # The 90% threshold applies independently of the native coverage gate.
-web_coverage:
+web_coverage: stage_wasm_test_assets
 	cd $(BETTO_PKG) && dart test -p chrome --coverage-path=coverage/web/lcov.info test/pdf_document_web_test.dart
 	@if [ -f $(BETTO_PKG)/coverage/web/lcov.info ]; then \
 	  echo "web_coverage: computing web coverage ..."; \

@@ -19,7 +19,7 @@ downloaded automatically by the native-assets hook on first use.
 | Android arm64  | Supported               |
 | Android x86_64 | Supported               |
 | Windows x86_64 | Not yet supported       |
-| Web (WASM)     | Not yet supported       |
+| Web (WASM)     | Supported (beta)        |
 
 ## Installation
 
@@ -349,14 +349,19 @@ when no embedded thumbnail exists.
 
 ## Architecture
 
-PDFium is not thread-safe. On native platforms all PDFium calls run on a
-dedicated background `Isolate` (`PdfiumIsolate`) so the calling isolate (e.g.
-the Flutter UI isolate) is never blocked. The isolate is spawned lazily on the
-first `PdfDocument.fromBytes()` call and held for the process lifetime.
-
 The platform backend is selected automatically via Dart's conditional import
 mechanism — callers import only `betto_pdfium.dart` and receive the correct
 implementation for their target.
+
+**Native platforms (macOS, Linux, iOS, Android, Windows):** PDFium is not
+thread-safe. All PDFium calls run on a dedicated background `Isolate`
+(`PdfiumIsolate`) so the calling isolate (e.g. the Flutter UI isolate) is
+never blocked. The isolate is spawned lazily on the first
+`PdfDocument.fromBytes()` call and held for the process lifetime.
+
+**Web (WASM):** PDFium runs synchronously on the browser main thread via the
+Emscripten module. There is no isolate boundary. Large document operations
+may block the UI — see the [Web (WASM)](#web-wasm) section for details.
 
 ## Running the examples
 
@@ -369,6 +374,56 @@ dart run bin/pdfinfo.dart    # pdfinfo CLI tool
 ```
 
 See [example/README.md](example/README.md) for more details.
+
+## Web (WASM)
+
+`betto_pdfium` includes a `dart:js_interop`-based backend for Flutter web and
+`dart2wasm`. It uses the PDFium Emscripten module from
+[bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries).
+
+### Web setup (one-time per app)
+
+The PDFium WASM and JS files must be placed at `web/assets/pdfium/` in your
+Flutter app before building. Run the helper script from the repo root:
+
+```sh
+make fetch_wasm_assets
+```
+
+This downloads `pdfium-wasm.tgz`, verifies its SHA-256, and extracts
+`pdfium.wasm` and `pdfium.js` to the correct location. Re-run this after every
+`betto_pdfium` version bump that upgrades the bblanchon build number.
+
+### Main-thread blocking (important)
+
+**v1 of the web backend runs synchronously on the browser main thread.** All
+PDFium calls block until they complete. For large or complex PDFs, individual
+operations may freeze the browser tab briefly.
+
+The streaming methods (`extractPlainText`, `extractAnnotations`, etc.) yield
+between pages via `Future.delayed(Duration.zero)` to reduce jank, but this
+does **not** unblock the thread during a single long PDFium call within a page.
+
+A Web Worker offload path is planned for a future release.
+
+### Web usage
+
+The public API is identical on all platforms. No code changes are needed when
+targeting the web — the correct backend is selected automatically via Dart's
+conditional import mechanism.
+
+```dart
+// Works identically on native and web.
+import 'package:betto_pdfium/betto_pdfium.dart';
+
+final doc = await PdfDocument.fromBytes(bytes);
+final meta = await doc.getMetadata();
+await doc.close();
+```
+
+On the web, `fromBytes` returns after the PDFium WASM module is loaded and
+initialised (on the first call this may take a moment while the browser
+downloads `pdfium.wasm`). Subsequent calls reuse the already-loaded module.
 
 ## Mobile (iOS / Android)
 

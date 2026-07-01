@@ -1,0 +1,6 @@
+# PDFium WASM assets staged by `make stage_wasm_test_assets`.
+# These are large binary files and are not committed to the repository.
+# Run `make web_test` or `make stage_wasm_test_assets` to populate this
+# directory before running `dart test -p chrome`.
+pdfium.js
+pdfium.wasm

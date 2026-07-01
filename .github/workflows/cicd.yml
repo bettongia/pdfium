@@ -80,6 +80,36 @@ jobs:
       - shell: bash
         run: cd packages/betto_pdfium && dart test
 
+  # ---------- Web: WASM tests via headless Chrome ----------
+  # Requires pdfium.js + pdfium.wasm downloaded from bblanchon at build time;
+  # these are not committed (gitignored). The fetch_wasm_assets target downloads
+  # and verifies them; the cache avoids redundant downloads on re-runs.
+  test-web:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - uses: browser-actions/setup-chrome@v2
+
+      - name: Cache PDFium WASM assets
+        uses: actions/cache@v5
+        with:
+          path: packages/betto_pdfium/integration_test_app/web/assets/pdfium
+          key: pdfium-wasm-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
+
+      - name: dart pub get
+        run: cd packages/betto_pdfium && dart pub get
+
+      - run: make web_test
+        env:
+          CHROME_EXECUTABLE: chrome
+
   deployment:
     runs-on: ubuntu-latest
     needs: build

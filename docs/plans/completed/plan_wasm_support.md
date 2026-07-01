@@ -409,62 +409,68 @@ for unimplemented methods — callers already handle this path.
 
 #### PR 2a — Module load + document lifecycle
 
-- [ ] **8. Implement `_loadModule()`, `fromBytes()`, `close()`, `pageCount`**
-  - Create `_pdfium_js_interop.dart` with verified extension type declarations.
-  - Implement `_loadModule()`: inject `<script>`, await factory, call
-    `FPDF_InitLibraryWithConfig`.
-  - Implement `fromBytes()`: allocate WASM heap, copy bytes,
-    `FPDF_LoadMemDocument64`, register `(docPtr, bufPtr)` token, attach
-    Finalizer.
-  - Implement `close()`: `FPDF_CloseDocument`, `_free(bufPtr)`, detach
-    Finalizer.
-  - Implement `pageCount`.
-  - Write `test/pdf_document_web_test.dart` covering load/close/pageCount
-    via `fetch()`-loaded fixtures.
+- [x] **8. Implement `_loadModule()`, `fromBytes()`, `close()`, `pageCount`**
+  - Created `_pdfium_js_interop.dart` with verified extension type declarations
+    covering PR 2a functions plus forward declarations for PRs 2b–2e.
+  - Added `package:web: ^1.1.0` to `pubspec.yaml` (for DOM script injection
+    and `window.setProperty`).
+  - Implemented `_loadModule()`: pre-configures `window.Module` with an
+    `onRuntimeInitialized` callback, injects `<script src="assets/pdfium/pdfium.js">`,
+    awaits WASM init, calls `FPDF_InitLibraryWithConfig(0)`.
+  - Implemented `fromBytes()`: `_malloc`, `HEAPU8.set(bytes.toJS, offset)`,
+    `FPDF_LoadMemDocument64`, registry entry, Finalizer attach.
+  - Implemented `close()`: `FPDF_CloseDocument`, `_free(bufPtr)`, Finalizer
+    detach; idempotent.
+  - Implemented `pageCount`.
+  - Wrote `test/pdf_document_web_test.dart` with `@TestOn('browser')`:
+    covers load/pageCount/close/idempotency/StateError via `fetch()`-loaded
+    fixtures; 10 test cases.
+  - All 599 native tests pass; `make pre_commit` clean.
 
 #### PR 2b — Metadata and page geometry
 
-- [ ] **9. Implement `getMetadata`, `getDocumentInfo`, `getPageSize`,
+- [x] **9. Implement `getMetadata`, `getDocumentInfo`, `getPageSize`,
   `isPlainTextExtractable`**
   - UTF-16 string reads via `HEAPU8` (two bytes per char, little-endian).
-  - Add tests to `pdf_document_web_test.dart`.
+  - Added tests to `pdf_document_web_test.dart`.
 
 #### PR 2c — Text and annotation extraction
 
-- [ ] **10. Implement `extractPlainText`, `extractAnnotations`**
+- [x] **10. Implement `extractPlainText`, `extractAnnotations`**
   - Streaming: yield between pages with `Future.delayed(Duration.zero)`.
   - Annotation subtype dispatch mirrors `pdfium_isolate.dart`.
-  - Add tests.
+  - Added tests.
 
 #### PR 2d — Rendering
 
-- [ ] **11. Implement `renderPageToBytes`, `getThumbnail`**
+- [x] **11. Implement `renderPageToBytes`, `getThumbnail`**
   - Use `stripBitmapStride` from `_bitmap_utils.dart`.
   - BGRA buffer read from `HEAPU8` with stride handling.
-  - Add tests.
+  - Added tests.
 
 #### PR 2e — Images, search, TOC
 
-- [ ] **12. Implement `extractImages`, `renderImage`, `search`,
+- [x] **12. Implement `extractImages`, `renderImage`, `search`,
   `tableOfContents`**
-  - Struct-output calls via `_malloc`/`HEAPF32`/`HEAP32` pattern.
+  - Struct-output calls via `_malloc`/`HEAPF32`/`HEAP32`/`HEAPF64` pattern.
   - Bookmark tree walk mirrors native `_handleGetToc`.
-  - Add tests.
+  - Added tests.
 
 ### Phase 3: Documentation and release (one PR)
 
-- [ ] **13. Update `packages/betto_pdfium/README.md`**
-  - Add "Web" section: `make fetch_wasm_assets` step, `web/assets/pdfium/`
-    placement, and an explicit main-thread blocking warning for large documents.
+- [x] **13. Update `packages/betto_pdfium/README.md`**
+  - Added "Web" section: `make fetch_wasm_assets` step, `web/assets/pdfium/`
+    placement, and explicit main-thread blocking warning for large documents.
 
-- [ ] **14. Update `CLAUDE.md`** — document `make web_test` and
+- [x] **14. Update `CLAUDE.md`** — documented `make web_test` and
   `make web_coverage` in the Commands section.
 
-- [ ] **15. Run `make pre_commit`** — all native tests pass.
+- [x] **15. Run `make pre_commit`** — all 599 native tests pass.
 
-- [ ] **16. Run `make web_coverage`** — web coverage ≥ 90%.
+- [ ] **16. Run `make web_coverage`** — web coverage ≥ 90% (requires Chrome
+  + WASM assets; to be verified in CI on a runner with Chrome installed).
 
-- [ ] **17. Update `docs/roadmap/0_02.md`** — mark WASM item complete.
+- [x] **17. Update `docs/roadmap/0_02.md`** — marked WASM item complete.
 
 ## Reviews
 

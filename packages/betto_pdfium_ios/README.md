@@ -71,4 +71,5 @@ different PDFium upstream commits.
 
 ## Licenses
 
-This package is provided under Apache 2.0 — see [LICENSE](../../LICENSE).
+This package is provided under Apache License, Version 2.0 — see
+[LICENSE](../../LICENSE).
