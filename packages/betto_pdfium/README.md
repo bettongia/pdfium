@@ -18,8 +18,13 @@ downloaded automatically by the native-assets hook on first use.
 | iOS arm64      | Supported (xcframework) |
 | Android arm64  | Supported               |
 | Android x86_64 | Supported               |
-| Windows x86_64 | Not yet supported       |
+| Windows x86_64 | Supported               |
 | Web (WASM)     | Supported (beta)        |
+
+_"Beta" for Web (WASM): the full API surface works, but v1 runs synchronously
+on the browser main thread (no Web Worker offload yet) and the backend is
+newer and less battle-tested than the native platforms. See
+[Web (WASM)](#web-wasm) below._
 
 ## Installation
 

@@ -1,6 +1,21 @@
+# betto_pdfium
+
 ## 0.1.0-dev.3
 
 In progress
+
+### Platform support
+
+- **Windows x86_64** — pre-built `pdfium.dll` (bblanchon/pdfium-binaries) is now
+  downloaded automatically by the native-assets hook, matching the existing
+  macOS/Linux workflow. No native toolchain required.
+- **Web (WASM)** — `PdfDocument` is now fully implemented on Flutter web and
+  `dart2wasm` via `dart:js_interop`, covering the complete API surface
+  (metadata, text/annotation/image extraction, rendering, search, table of
+  contents, thumbnails). Run `make fetch_wasm_assets` to place the PDFium WASM +
+  JS artifact in your app's `web/assets/pdfium/` directory; see the package
+  README for setup. v1 runs synchronously on the browser main thread — large
+  documents may block the UI during a single call.
 
 ## 0.1.0-dev.2 — 2026-06-30
 
