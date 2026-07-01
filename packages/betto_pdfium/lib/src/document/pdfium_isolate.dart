@@ -2653,70 +2653,34 @@ void _handleGetPageThumbnail(
       final format = bindings.FPDFBitmap_GetFormat(bitmap);
       final bufferPtr = bindings.FPDFBitmap_GetBuffer(bitmap);
 
-      // Determine how many source bytes per pixel based on the bitmap format.
-      // We always output 4 bytes per pixel (BGRA).
-      //
+      // The native buffer contains [height] rows, each [stride] bytes.
+      // [stride] may be > [width * bytesPerPixel] due to row padding.
+      final nativeView = bufferPtr.cast<ffi.Uint8>().asTypedList(
+        stride * height,
+      );
+
       // FPDFBitmap_BGRA = 4: 4 bytes/px (B, G, R, A) — copy directly.
       // FPDFBitmap_BGRx = 3: 4 bytes/px (B, G, R, x) — replace x with 0xFF.
       // FPDFBitmap_BGR  = 2: 3 bytes/px (B, G, R)    — append 0xFF for A.
       // Other formats are unsupported — the embedded thumbnail has an unusual
       // colour representation; reject it with a descriptive message so the
       // caller can fall back to rendering.
-      final int srcBytesPerPixel;
-      switch (format) {
-        case FPDFBitmap_BGRA:
-          srcBytesPerPixel = 4;
-          break;
-        case FPDFBitmap_BGRx:
-          // 4 bytes per pixel but the 4th byte is reserved (not alpha).
-          // PDFium fills the x byte with 0 — we overwrite it with 0xFF.
-          srcBytesPerPixel = 4;
-          break;
-        case FPDFBitmap_BGR:
-          srcBytesPerPixel = 3;
-          break;
-        default:
-          cmd.replyPort.send(
-            PdfiumGetPageThumbnailResponse.failure(
-              'FPDFPage_GetThumbnailAsBitmap returned a bitmap in unsupported '
-              'format $format for page ${cmd.pageIndex}. '
-              'Only BGRA, BGRx, and BGR formats are supported.',
-            ),
-          );
-          return;
-      }
-
-      // Allocate the compact BGRA output buffer.
-      final bgra = Uint8List(width * height * 4);
-
-      // The native buffer contains [height] rows, each [stride] bytes.
-      // [stride] may be > [srcBytesPerPixel * width] due to row padding.
-      // We strip padding by copying only the pixel data bytes per row.
-      final nativeView = bufferPtr.cast<ffi.Uint8>().asTypedList(
-        stride * height,
+      final bgra = convertBitmapToCompactBgra(
+        nativeView,
+        width,
+        height,
+        stride,
+        format,
       );
-
-      for (var row = 0; row < height; row++) {
-        final srcRowBase = row * stride;
-        final dstRowBase = row * width * 4;
-
-        for (var col = 0; col < width; col++) {
-          final srcOff = srcRowBase + col * srcBytesPerPixel;
-          final dstOff = dstRowBase + col * 4;
-
-          // Copy B, G, R bytes directly.
-          bgra[dstOff] = nativeView[srcOff]; // B
-          bgra[dstOff + 1] = nativeView[srcOff + 1]; // G
-          bgra[dstOff + 2] = nativeView[srcOff + 2]; // R
-
-          if (format == FPDFBitmap_BGRA) {
-            // BGRA: 4th source byte is the real alpha.
-            bgra[dstOff + 3] = nativeView[srcOff + 3]; // A
-          } else {
-            // BGRx or BGR: no alpha channel — set fully opaque.
-            bgra[dstOff + 3] = 0xFF; // A = opaque
-          }
-        }
+      if (bgra == null) {
+        cmd.replyPort.send(
+          PdfiumGetPageThumbnailResponse.failure(
+            'FPDFPage_GetThumbnailAsBitmap returned a bitmap in unsupported '
+            'format $format for page ${cmd.pageIndex}. '
+            'Only BGRA, BGRx, and BGR formats are supported.',
+          ),
+        );
+        return;
       }
 
       cmd.replyPort.send(

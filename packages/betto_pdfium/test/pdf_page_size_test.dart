@@ -91,8 +91,10 @@ void main() {
     test('contains widthPt and heightPt values', () {
       const size = PdfPageSize(widthPt: 595.0, heightPt: 842.0);
       final s = size.toString();
-      expect(s, contains('595.0'));
-      expect(s, contains('842.0'));
+      // Not '595.0'/'842.0': dart2js formats whole-number doubles without
+      // the trailing '.0', unlike the Dart VM — '595'/'842' match both.
+      expect(s, contains('595'));
+      expect(s, contains('842'));
     });
 
     test('contains PdfPageSize label', () {

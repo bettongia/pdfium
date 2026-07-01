@@ -204,16 +204,33 @@ stage_wasm_test_assets: fetch_wasm_assets
 # web_test: run the dedicated web test suite (test/pdf_document_web_test.dart)
 # in headless Chrome. Requires Chrome to be installed on the host.
 # Fixtures are served from the test/ directory by dart test's local server.
+#
+# Also runs the platform-agnostic unit-test files (no dart:io/dart:ffi
+# imports) under the browser platform, alongside the dedicated web suite —
+# without these, their coverage never counts toward web_coverage below, even
+# though the code they test (shared model/utility files) is real web-relevant
+# source.
+WEB_TEST_FILES := test/pdf_document_web_test.dart test/bitmap_util_test.dart \
+	test/pdf_types_test.dart test/pdf_date_parser_test.dart \
+	test/pdf_page_size_test.dart
+
 web_test: stage_wasm_test_assets
-	cd $(BETTO_PKG) && dart test -p chrome test/pdf_document_web_test.dart
+	cd $(BETTO_PKG) && dart test -p chrome $(WEB_TEST_FILES)
 .PHONY: web_test
 
 # web_coverage: measure web test coverage and enforce ≥ 90% line coverage.
 # Produces lcov data at coverage/web/lcov.info for the browser run.
+# The raw browser lcov includes every script Chrome instrumented on the test
+# page, which — unlike the VM-based `coverage` target — includes transitive
+# third-party dependencies bundled into the same compiled JS (package:test,
+# package:async, package:collection, etc.). `lcov --extract` narrows the
+# report to this package's own lib/ sources before the threshold is computed,
+# mirroring the `*/generated/*` exclusion in the `coverage` target above.
 # The 90% threshold applies independently of the native coverage gate.
 web_coverage: stage_wasm_test_assets
-	cd $(BETTO_PKG) && dart test -p chrome --coverage-path=coverage/web/lcov.info test/pdf_document_web_test.dart
+	cd $(BETTO_PKG) && dart test -p chrome --coverage-path=coverage/web/lcov.info $(WEB_TEST_FILES)
 	@if [ -f $(BETTO_PKG)/coverage/web/lcov.info ]; then \
+	  lcov --extract $(BETTO_PKG)/coverage/web/lcov.info '*/betto_pdfium/lib/*' -o $(BETTO_PKG)/coverage/web/lcov.info; \
 	  echo "web_coverage: computing web coverage ..."; \
 	  LINES_FOUND=$$(grep -c '^DA:' $(BETTO_PKG)/coverage/web/lcov.info || echo 0); \
 	  LINES_HIT=$$(grep '^DA:' $(BETTO_PKG)/coverage/web/lcov.info | grep -v ',0$$' | wc -l | tr -d '[:space:]'); \

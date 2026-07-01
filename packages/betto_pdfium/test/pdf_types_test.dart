@@ -1949,11 +1949,13 @@ void main() {
 
     test('toString contains all four edges', () {
       final s = r.toString();
+      // Not '10.0'/'20.0'/etc.: dart2js formats whole-number doubles without
+      // the trailing '.0', unlike the Dart VM — the bare digits match both.
       expect(s, contains('PdfRect'));
-      expect(s, contains('left: 10.0'));
-      expect(s, contains('bottom: 20.0'));
-      expect(s, contains('right: 100.0'));
-      expect(s, contains('top: 80.0'));
+      expect(s, contains('left: 10'));
+      expect(s, contains('bottom: 20'));
+      expect(s, contains('right: 100'));
+      expect(s, contains('top: 80'));
     });
   });
 

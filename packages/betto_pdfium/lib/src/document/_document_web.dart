@@ -496,8 +496,10 @@ class PdfDocumentImpl {
         final bufPtr = module.fpdfBitmapGetBuffer(bitmap);
         final stride = module.fpdfBitmapGetStride(bitmap);
         final byteCount = stride * pixelHeight;
-        final rawBytes = Uint8List.fromList(
-          module.heapu8.toDart.sublist(bufPtr, bufPtr + byteCount),
+        final rawBytes = Uint8List.view(
+          module.heapu8.toDart.buffer,
+          bufPtr,
+          byteCount,
         );
         final pixels = stripBitmapStride(
           rawBytes,
@@ -1697,39 +1699,15 @@ PdfThumbnail? _readThumbnailBitmap(
   final format = module.fpdfBitmapGetFormat(bitmap);
   final bufPtr = module.fpdfBitmapGetBuffer(bitmap);
 
-  // format: 2=BGR (3 bytes/px), 3=BGRx (4 bytes/px), 4=BGRA (4 bytes/px).
-  final int srcBytesPerPixel;
-  switch (format) {
-    case 4: // BGRA
-      srcBytesPerPixel = 4;
-      break;
-    case 3: // BGRx — the x byte carries no information; replace with 0xFF.
-      srcBytesPerPixel = 4;
-      break;
-    case 2: // BGR — expand to BGRA by appending 0xFF alpha.
-      srcBytesPerPixel = 3;
-      break;
-    default:
-      return null; // coverage:ignore-line
-  }
-
-  final bgra = Uint8List(width * height * 4);
-  final u8 = module.heapu8.toDart;
-
-  for (var row = 0; row < height; row++) {
-    final srcRowBase = bufPtr + row * stride;
-    final dstRowBase = row * width * 4;
-
-    for (var col = 0; col < width; col++) {
-      final srcOff = srcRowBase + col * srcBytesPerPixel;
-      final dstOff = dstRowBase + col * 4;
-
-      bgra[dstOff] = u8[srcOff]; // B
-      bgra[dstOff + 1] = u8[srcOff + 1]; // G
-      bgra[dstOff + 2] = u8[srcOff + 2]; // R
-      bgra[dstOff + 3] = (format == 4) ? u8[srcOff + 3] : 0xFF; // A
-    }
-  }
+  final bgra = convertBitmapToCompactBgra(
+    module.heapu8.toDart,
+    width,
+    height,
+    stride,
+    format,
+    srcOffset: bufPtr,
+  );
+  if (bgra == null) return null; // coverage:ignore-line
 
   return PdfThumbnail(
     bgra: bgra,
@@ -1884,8 +1862,10 @@ PdfImageBitmap? _renderImageBitmap(
 
     final bufPtr = module.fpdfBitmapGetBuffer(bitmap);
     final byteCount = stride * height;
-    final rawBytes = Uint8List.fromList(
-      module.heapu8.toDart.sublist(bufPtr, bufPtr + byteCount),
+    final rawBytes = Uint8List.view(
+      module.heapu8.toDart.buffer,
+      bufPtr,
+      byteCount,
     );
     final bgra = stripBitmapStride(rawBytes, width, height, stride);
 

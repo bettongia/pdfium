@@ -27,7 +27,7 @@
 import 'dart:typed_data';
 
 import 'package:betto_pdfium/src/document/_bitmap_utils.dart'
-    show stripBitmapStride;
+    show convertBitmapToCompactBgra, stripBitmapStride;
 import 'package:test/test.dart';
 
 void main() {
@@ -183,5 +183,78 @@ void main() {
         expect(result.contains(0xEE), isFalse);
       },
     );
+  });
+
+  group('convertBitmapToCompactBgra', () {
+    // -------------------------------------------------------------------------
+    // BGRA (format 4)
+    // -------------------------------------------------------------------------
+
+    test('BGRA: copies alpha directly and strips padding', () {
+      // 1 pixel wide, 2 rows, stride = 8 (4 pixel bytes + 4 pad bytes).
+      final src = Uint8List.fromList([
+        10, 20, 30, 40, 0xFF, 0xFF, 0xFF, 0xFF, // row 0 + padding
+        50, 60, 70, 80, 0xFF, 0xFF, 0xFF, 0xFF, // row 1 + padding
+      ]);
+      final result = convertBitmapToCompactBgra(src, 1, 2, 8, 4);
+      expect(result, isNotNull);
+      expect(result!.length, equals(1 * 2 * 4));
+      expect(result, equals([10, 20, 30, 40, 50, 60, 70, 80]));
+    });
+
+    // -------------------------------------------------------------------------
+    // BGRx (format 3) — 4 bytes/px, 4th byte replaced with 0xFF
+    // -------------------------------------------------------------------------
+
+    test('BGRx: 4th source byte is replaced with 0xFF alpha', () {
+      // 1 pixel wide, 1 row: B=10, G=20, R=30, x=0x00 (should become 0xFF).
+      final src = Uint8List.fromList([10, 20, 30, 0]);
+      final result = convertBitmapToCompactBgra(src, 1, 1, 4, 3);
+      expect(result, equals([10, 20, 30, 0xFF]));
+    });
+
+    // -------------------------------------------------------------------------
+    // BGR (format 2) — 3 bytes/px, expanded to BGRA with 0xFF alpha
+    // -------------------------------------------------------------------------
+
+    test('BGR: expands 3 bytes/px to 4 bytes/px with 0xFF alpha', () {
+      // 2 pixels wide, 1 row, stride = 6 (2 * 3 bytes/px, no padding).
+      final src = Uint8List.fromList([10, 20, 30, 40, 50, 60]);
+      final result = convertBitmapToCompactBgra(src, 2, 1, 6, 2);
+      expect(result, equals([10, 20, 30, 0xFF, 40, 50, 60, 0xFF]));
+    });
+
+    // -------------------------------------------------------------------------
+    // srcOffset — web backend reads from an absolute WASM heap address
+    // -------------------------------------------------------------------------
+
+    test('srcOffset: reads the bitmap starting at a non-zero offset', () {
+      // Simulates a WASM heap where the bitmap buffer starts at byte 100.
+      // 1 pixel wide, stride = 8 (4 pixel bytes + 4 padding bytes per row).
+      final heap = Uint8List(116);
+      heap.setRange(100, 116, [
+        10, 20, 30, 40, 0xFF, 0xFF, 0xFF, 0xFF, // row 0 + padding
+        50, 60, 70, 80, 0xFF, 0xFF, 0xFF, 0xFF, // row 1 + padding
+      ]);
+      final result = convertBitmapToCompactBgra(
+        heap,
+        1,
+        2,
+        8,
+        4,
+        srcOffset: 100,
+      );
+      expect(result, equals([10, 20, 30, 40, 50, 60, 70, 80]));
+    });
+
+    // -------------------------------------------------------------------------
+    // Unsupported format
+    // -------------------------------------------------------------------------
+
+    test('unsupported format returns null', () {
+      final src = Uint8List(16);
+      expect(convertBitmapToCompactBgra(src, 2, 2, 8, 1), isNull);
+      expect(convertBitmapToCompactBgra(src, 2, 2, 8, 0), isNull);
+    });
   });
 }
