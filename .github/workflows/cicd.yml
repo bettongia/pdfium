@@ -97,6 +97,15 @@ jobs:
 
       - uses: browser-actions/setup-chrome@v2
 
+      # Ubuntu 23.10+ disables unprivileged user namespaces via AppArmor, which
+      # breaks Chrome's sandbox in CI.  Wrap the binary so dart test picks up
+      # --no-sandbox without needing to modify the Makefile.
+      - name: Create no-sandbox Chrome wrapper
+        run: |
+          printf '#!/bin/sh\nexec chrome --no-sandbox "$@"\n' \
+            > /usr/local/bin/chrome-no-sandbox
+          chmod +x /usr/local/bin/chrome-no-sandbox
+
       - name: Cache PDFium WASM assets
         uses: actions/cache@v5
         with:
@@ -108,7 +117,7 @@ jobs:
 
       - run: make web_test
         env:
-          CHROME_EXECUTABLE: chrome
+          CHROME_EXECUTABLE: /usr/local/bin/chrome-no-sandbox
 
   deployment:
     runs-on: ubuntu-latest
