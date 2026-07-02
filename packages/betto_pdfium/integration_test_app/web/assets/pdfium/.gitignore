@@ -1,5 +1,7 @@
-# PDFium WASM assets — downloaded by `make fetch_wasm_assets`, not committed.
-# Run `make fetch_wasm_assets` before a Flutter web build or `make web_test`.
+# PDFium WASM assets — downloaded/copied by `make fetch_wasm_assets`, not
+# committed. Run `make fetch_wasm_assets` before a Flutter web build or
+# `make web_test`.
 pdfium.wasm
 pdfium.js
+pdfium_worker.js
 .bblanchon_build

@@ -122,7 +122,10 @@ class PdfDocumentImpl {
       args: {'token': token},
     );
     final wire = buildRequestMessage(request);
-    worker.postMessage(wire.message, wire.transfer.cast<JSAny>().toJS);
+    // Note: do NOT insert a `.cast<JSAny>()` step here — see the comment on
+    // the equivalent call in `_pdfium_worker_entry.dart`'s `_respond()` for
+    // why a `CastList` breaks under stricter compile modes.
+    worker.postMessage(wire.message, wire.transfer.toJS);
     // No completer is registered for this request id — the eventual
     // response is silently ignored by _onMessage.
   });
@@ -151,15 +154,25 @@ class PdfDocumentImpl {
     String op,
     Map<String, dynamic> args, {
     List<Uint8List> buffers = const [],
+    bool transferBuffers = true,
   }) async {
     final worker = _getWorker();
     final id = _nextRequestId++;
     final completer = Completer<WorkerResponse>();
     _pending[id] = completer;
 
-    final request = WorkerRequest(id: id, op: op, args: args, buffers: buffers);
+    final request = WorkerRequest(
+      id: id,
+      op: op,
+      args: args,
+      buffers: buffers,
+      transferBuffers: transferBuffers,
+    );
     final wire = buildRequestMessage(request);
-    worker.postMessage(wire.message, wire.transfer.cast<JSAny>().toJS);
+    // Note: do NOT insert a `.cast<JSAny>()` step here — see the comment on
+    // the equivalent call in `_pdfium_worker_entry.dart`'s `_respond()` for
+    // why a `CastList` breaks under stricter compile modes.
+    worker.postMessage(wire.message, wire.transfer.toJS);
 
     final response = await completer.future;
     if (!response.ok) {
@@ -198,10 +211,14 @@ class PdfDocumentImpl {
 
   /// Loads a PDF document from raw [bytes].
   ///
-  /// [bytes] is transferred (not copied) to the worker, which allocates a
-  /// WASM heap buffer, copies the bytes in, and calls
-  /// `FPDF_LoadMemDocument64`. The worker-side buffer is kept alive until
-  /// [close].
+  /// [bytes] is copied (via structured clone, not transferred) to the
+  /// worker, which allocates a WASM heap buffer, copies the bytes in, and
+  /// calls `FPDF_LoadMemDocument64`. The worker-side buffer is kept alive
+  /// until [close]. [bytes] is deliberately NOT transferred: unlike
+  /// worker-generated output buffers (rendered bitmaps), [bytes] is supplied
+  /// by the caller, who may reasonably expect to reuse it afterwards (e.g.
+  /// to load the same bytes into a second document) — transferring would
+  /// silently neuter their buffer as a side effect of calling [fromBytes].
   ///
   /// [dylibPath] is accepted for API compatibility with the native backend
   /// but is ignored on web — the WASM module is loaded from a fixed URL.
@@ -212,7 +229,12 @@ class PdfDocumentImpl {
     Uint8List bytes, {
     String? dylibPath,
   }) async {
-    final response = await _send(WorkerOp.load, const {}, buffers: [bytes]);
+    final response = await _send(
+      WorkerOp.load,
+      const {},
+      buffers: [bytes],
+      transferBuffers: false,
+    );
     final token = response.result!['token'] as int;
     return PdfDocumentImpl._(token);
   }

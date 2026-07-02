@@ -61,7 +61,11 @@ import '_pdfium_worker_protocol.dart';
   obj.setProperty('op'.toJS, request.op.toJS);
   obj.setProperty('json'.toJS, request.encodeArgs().toJS);
   obj.setProperty('buffers'.toJS, buffers.toJS);
-  return (message: obj, transfer: buffers);
+  // When transferBuffers is false (WorkerOp.load — see WorkerRequest's doc
+  // comment), the transfer list is empty: postMessage still delivers
+  // `buffers` via structured-clone copy, but the caller's own ArrayBuffer is
+  // left intact rather than neutered.
+  return (message: obj, transfer: request.transferBuffers ? buffers : const []);
 }
 
 /// Parses a raw `JSObject` message (received worker-side) back into a

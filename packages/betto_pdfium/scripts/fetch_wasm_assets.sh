@@ -54,8 +54,14 @@
 #   WASM_OUTPUT_DIR  Output directory for extracted WASM assets.
 #                    Default: integration_test_app/web/assets/pdfium/
 #
-# The script is idempotent: if the target directory already contains the
-# correct build-number marker file, extraction is skipped.
+# The bblanchon tarball download/extraction is idempotent: if the target
+# directory already contains the correct build-number marker file, that part
+# is skipped. The pdfium_worker.js copy is intentionally NOT gated by that
+# same marker — it is betto_pdfium's own checked-in artifact, versioned
+# independently of the bblanchon build number, so it must be re-copied on
+# every run in case it has changed locally (e.g. after `make
+# build_wasm_worker` during development) even when the bblanchon build itself
+# is unchanged.
 
 set -euo pipefail
 
@@ -63,11 +69,25 @@ BUILD=$(tr -d '[:space:]' < BBLANCHON_BUILD)
 OUTPUT_DIR="${WASM_OUTPUT_DIR:-integration_test_app/web/assets/pdfium}"
 MARKER="$OUTPUT_DIR/.bblanchon_build"
 
-# Idempotent: skip if already at the correct version.
+# Always (re-)copy the package's own checked-in Worker bundle alongside
+# pdfium.js/.wasm, regardless of whether the tarball step below is skipped.
+# This is not part of the bblanchon tarball — it is compiled and committed by
+# betto_pdfium's own release process (see `make build_wasm_worker`).
+if [ ! -f "lib/assets/pdfium_worker.js" ]; then
+    echo "fetch_wasm_assets: lib/assets/pdfium_worker.js not found relative to \$PWD ($PWD)."
+    echo "  This script must be run with the betto_pdfium package root as the"
+    echo "  current working directory (e.g. via 'make fetch_wasm_assets')."
+    exit 1
+fi
+mkdir -p "$OUTPUT_DIR"
+cp "lib/assets/pdfium_worker.js" "$OUTPUT_DIR/pdfium_worker.js"
+
+# Idempotent: skip the tarball download/extraction if already at the correct
+# version (the pdfium_worker.js copy above has already happened either way).
 if [ -f "$MARKER" ]; then
     INSTALLED=$(tr -d '[:space:]' < "$MARKER")
     if [ "$INSTALLED" = "$BUILD" ]; then
-        echo "fetch_wasm_assets: already at bblanchon chromium/$BUILD — nothing to do."
+        echo "fetch_wasm_assets: already at bblanchon chromium/$BUILD — pdfium.wasm/.js unchanged; pdfium_worker.js refreshed."
         exit 0
     fi
 fi
@@ -118,16 +138,7 @@ tar -xzf "$WORK/$ARTIFACT" -C "$WORK" lib/pdfium.wasm lib/pdfium.js
 cp "$WORK/lib/pdfium.wasm" "$OUTPUT_DIR/pdfium.wasm"
 cp "$WORK/lib/pdfium.js"   "$OUTPUT_DIR/pdfium.js"
 
-# Copy the package's own checked-in Worker bundle alongside pdfium.js/.wasm.
-# This is not part of the bblanchon tarball — it is compiled and committed by
-# betto_pdfium's own release process (see `make build_wasm_worker`).
-if [ ! -f "lib/assets/pdfium_worker.js" ]; then
-    echo "fetch_wasm_assets: lib/assets/pdfium_worker.js not found relative to \$PWD ($PWD)."
-    echo "  This script must be run with the betto_pdfium package root as the"
-    echo "  current working directory (e.g. via 'make fetch_wasm_assets')."
-    exit 1
-fi
-cp "lib/assets/pdfium_worker.js" "$OUTPUT_DIR/pdfium_worker.js"
+# (pdfium_worker.js was already (re-)copied above, unconditionally.)
 
 # Write the build-number marker for idempotency.
 echo "$BUILD" > "$MARKER"

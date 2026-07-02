@@ -116,7 +116,18 @@ abstract final class WorkerOp {
 /// eventual [WorkerResponse]. [op] is one of the [WorkerOp] constants. [args]
 /// is a JSON-safe map of operation-specific parameters. [buffers] carries any
 /// large binary payloads (currently only used by [WorkerOp.load], for the raw
-/// PDF bytes) that should be transferred rather than copied.
+/// PDF bytes).
+///
+/// [transferBuffers] controls whether [buffers] are moved (via
+/// `postMessage`'s transfer list) or structured-clone-copied. This defaults
+/// to true, but [WorkerOp.load] must set it to false: [buffers] there is the
+/// *caller's own* PDF byte buffer, which the caller may reasonably expect to
+/// still be usable after `fromBytes()` returns (e.g. to load the same bytes
+/// into a second document, or simply because they own the buffer). A
+/// transferred `ArrayBuffer` is neutered on the sender side immediately, so
+/// transferring caller-supplied input would silently break any such reuse —
+/// unlike worker-*generated* output buffers (rendered bitmaps), which are
+/// always freshly allocated per response and safe to move.
 class WorkerRequest {
   /// Creates a [WorkerRequest].
   const WorkerRequest({
@@ -124,6 +135,7 @@ class WorkerRequest {
     required this.op,
     required this.args,
     this.buffers = const [],
+    this.transferBuffers = true,
   });
 
   /// Correlation id matching the eventual [WorkerResponse.id].
@@ -138,6 +150,10 @@ class WorkerRequest {
   /// Large binary payloads referenced from [args] via integer `bufIndex`
   /// fields (see file-level doc comment).
   final List<Uint8List> buffers;
+
+  /// Whether [buffers] should be moved (transferred) rather than copied. See
+  /// the class-level doc comment for why [WorkerOp.load] must set this false.
+  final bool transferBuffers;
 
   /// Encodes [args] as a JSON string. [buffers] travels out-of-band.
   String encodeArgs() => jsonEncode(args);

@@ -382,8 +382,15 @@ int _docPtr(
 /// buffers rather than copying them.
 void _respond(web.DedicatedWorkerGlobalScope scope, WorkerResponse response) {
   final wire = buildResponseMessage(response);
-  final transfer = wire.transfer.cast<JSAny>().toJS;
-  scope.postMessage(wire.message, transfer);
+  // Note: do NOT insert a `.cast<JSAny>()` step here — `List.cast()` returns
+  // a lazy `CastList` view rather than a real JS-backed list, and `.toJS`
+  // on a `CastList` produces a JSArray that fails runtime type checks under
+  // stricter compile modes (observed under `dart test --coverage-path`,
+  // which surfaced a `CastList is not a subtype of JSArray` TypeError that
+  // the default test compile mode did not catch). `wire.transfer` is
+  // already typed `List<JSArrayBuffer>`, which satisfies `.toJS`'s
+  // `List<T extends JSAny?>` bound directly.
+  scope.postMessage(wire.message, wire.transfer.toJS);
 }
 
 /// Loads pdfium.js and initialises the PDFium WASM module from within the

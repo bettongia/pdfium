@@ -732,21 +732,28 @@ missing ~7 points closed as part of this work, not just preserved — budget
 for that when scoping this phase, not just for the worker-specific direct
 tests.
 
-- [ ] Add a new test file (or a clearly separated section of an existing one)
+- [x] Add a new test file (or a clearly separated section of an existing one)
   that loads the PDFium module **directly on the main thread** using the
   Phase 1 bootstrap function, bypassing the `Worker` entirely, and calls the
   Phase 1 engine functions directly against real fixture PDFs — exercising
   the same code paths the worker executes at runtime, but in a context
-  `dart test -p chrome --coverage-path` can see.
-- [ ] Mark the worker-side dispatch shell in `_pdfium_worker_entry.dart`
+  `dart test -p chrome --coverage-path` can see. (`test/pdfium_wasm_engine_test.dart`,
+  added to `WEB_TEST_FILES`.)
+- [x] Mark the worker-side dispatch shell in `_pdfium_worker_entry.dart`
   (the `main()`/`onmessage` glue itself, as distinct from the engine
   functions it calls) with `// coverage:ignore-start` / `-end`, consistent
   with the project's existing convention for platform-dispatch code in
-  `pdfium_isolate.dart`.
-- [ ] Close the pre-existing ~7-point gap to 90% (see baseline note above) —
+  `pdfium_isolate.dart`. (Done in Phase 2 when the file was written.)
+- [x] Close the pre-existing ~7-point gap to 90% (see baseline note above) —
   add fixtures/assertions for the currently-uncovered annotation subtypes
   and other scattered branches, not just the new worker-related code.
-- [ ] Run `make web_coverage` and confirm ≥ 90% holds.
+  (Wired up several previously-generated-but-unused fixtures —
+  `annotated_extra.pdf`, `popup_freetext.pdf`, `popup_multi.pdf`,
+  `zero_ink_stroke.pdf`, `zero_polygon_vertices.pdf`, `empty_uri_link.pdf`,
+  and `test/data/thumbnail_fixture.pdf` — into both
+  `test/pdf_document_web_test.dart` and the new direct-engine test file.)
+- [x] Run `make web_coverage` and confirm ≥ 90% holds. (92.8% — 1403/1512
+  lines, up from an 88.3%/83.5% pre-Phase-4 baseline.)
 - [ ] Commit: `test(wasm-worker): add direct engine tests to preserve
   coverage gate`.
 
