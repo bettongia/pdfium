@@ -605,7 +605,79 @@ void main() {
         expect(pages.length, equals(1));
         expect(pages.first.pageIndex, equals(0));
       });
+
+      test(
+        'close() during active extractAnnotations stream terminates cleanly',
+        () async {
+          // Regression test for worker RPC timing (Phase 5): extractAnnotations
+          // fetches all pages in a single worker round trip, then yields them
+          // locally. close() mid-stream is routed through the same per-token
+          // request queue as the original request, so it must not race or
+          // corrupt the in-flight extraction.
+          doc = await PdfDocument.fromBytes(
+            await _fetchFixture('multi_page_annotated.pdf'),
+          );
+          final results = <PdfPageAnnotations>[];
+          await for (final page in doc.extractAnnotations()) {
+            results.add(page);
+            await doc.close();
+          }
+          // Only the first page should have been collected before close().
+          expect(results, hasLength(1));
+        },
+      );
     });
+  });
+
+  // Worker RPC timing: concurrency and ordering (Phase 5).
+  group('PdfDocument web — Worker RPC timing', () {
+    test(
+      'concurrent operations on the same document are serialized correctly',
+      () async {
+        final doc = await PdfDocument.fromBytes(
+          await _fetchFixture('multi_page_annotated.pdf'),
+        );
+        try {
+          // Fire several requests concurrently for the same document token;
+          // the per-token request queue (_sendForToken) must serialize them
+          // without cross-talk or corruption.
+          final results = await Future.wait([
+            doc.pageCount,
+            doc.getMetadata(),
+            doc.pageCount,
+            doc.extractAnnotations().toList(),
+            doc.pageCount,
+          ]);
+          expect(results[0], equals(results[2]));
+          expect(results[2], equals(results[4]));
+        } finally {
+          await doc.close();
+        }
+      },
+    );
+
+    test(
+      'closing one document does not affect concurrent operations on another',
+      () async {
+        final docA = await PdfDocument.fromBytes(
+          await _fetchFixture('no_annotations.pdf'),
+        );
+        final docB = await PdfDocument.fromBytes(
+          await _fetchFixture('full_metadata.pdf'),
+        );
+        try {
+          final bPageCountFuture = docB.pageCount;
+          await docA.close();
+          // docB's in-flight request (and the document itself) must be
+          // unaffected by docA's close(), since requests are only serialized
+          // per-token, not globally.
+          expect(await bPageCountFuture, equals(1));
+          expect(await docB.pageCount, equals(1));
+        } finally {
+          await docB.close();
+        }
+      },
+    );
   });
 
   // Phase 2d: rendering and thumbnails.
