@@ -754,7 +754,7 @@ tests.
   `test/pdf_document_web_test.dart` and the new direct-engine test file.)
 - [x] Run `make web_coverage` and confirm ≥ 90% holds. (92.8% — 1403/1512
   lines, up from an 88.3%/83.5% pre-Phase-4 baseline.)
-- [ ] Commit: `test(wasm-worker): add direct engine tests to preserve
+- [x] Commit: `test(wasm-worker): add direct engine tests to preserve
   coverage gate`.
 
 ### Phase 5 — Adapt the end-to-end web test suite
@@ -766,13 +766,20 @@ worker doesn't only work from a real `flutter build web` output tree. If that
 assumption turns out to be false, treat it as a signal to pull the relevant
 Phase 6 scaffolding forward rather than working around it here.
 
-- [ ] Adjust `test/pdf_document_web_test.dart` for the new async/worker
+- [x] Adjust `test/pdf_document_web_test.dart` for the new async/worker
   timing (module + worker startup latency, request/response round trips).
   This suite now validates end-to-end correctness through the real worker
   path — it is not expected to move the coverage number (Phase 4 already
   covers that), only to keep proving the public API behaves identically.
-- [ ] Run `make web_test` and `make web_coverage` together; both must pass.
-- [ ] Commit: `test(wasm-worker): adapt end-to-end web suite for
+  (The existing suite already passed unchanged against the real worker
+  during Phase 3/4 validation — no existing assertions needed timing fixes.
+  Added new Worker-RPC-specific regression tests instead: a `close()`
+  mid-stream test for `extractAnnotations`, a concurrent-requests-on-one-
+  document test exercising the per-token request queue, and a
+  closing-one-document-does-not-affect-another test.)
+- [x] Run `make web_test` and `make web_coverage` together; both must pass.
+  (393 tests pass; coverage holds at 92.8%.)
+- [x] Commit: `test(wasm-worker): adapt end-to-end web suite for
   worker-backed execution`.
 
 ### Phase 6 — Real-world validation via `integration_test_app`
