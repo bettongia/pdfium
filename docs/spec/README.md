@@ -5,7 +5,7 @@ toc-title: "Contents"
 ...
 
 - **Package:** `betto_pdfium`
-- **Version:** 0.1.0-dev.3
+- **Version:** 0.1.0-dev.4
 - **Dart SDK:** ≥ 3.12.0
 
 # Overview
@@ -58,9 +58,8 @@ detection for malformed PDFs, and the deliberate omission of zoom values from
 API for rasterising a PDF page into raw BGRA bytes via `renderPageToBytes()`,
 plus the `package:betto_pdf_widgets` Flutter layer — the `renderPage()`
 extension that decodes to a `dart:ui Image`, and the `PageView` / `PageViewer`
-widgets that wrap it. Covers `RenderOptions`, the BGRA rendering pipeline
-inside the isolate, high-DPI scaling, caching behaviour, and in-flight
-cancellation.
+widgets that wrap it. Covers `RenderOptions`, the BGRA rendering pipeline inside
+the isolate, high-DPI scaling, caching behaviour, and in-flight cancellation.
 
 ### [Testing](10_testing.md)
 
