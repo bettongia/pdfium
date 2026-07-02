@@ -1,8 +1,8 @@
 # Web (WASM) Backend — Web Worker Offload
 
-**Status**: Implementing
+**Status**: Complete
 
-**PR link**: _pending_
+**PR link**: https://github.com/bettongia/pdfium/pull/2
 
 ## Problem statement
 
@@ -854,12 +854,12 @@ Phase 6 scaffolding forward rather than working around it here.
 
 ### Phase 8 — Finalise
 
-- [ ] Run `make pre_commit` and `make web_coverage` one final time on the
-  full branch.
-- [ ] Update this plan's **Status** to `Complete`, write the **Summary**
+- [x] Run `make pre_commit` and `make web_coverage` one final time on the
+  full branch. (Both pass; web coverage 92.8%.)
+- [x] Update this plan's **Status** to `Complete`, write the **Summary**
   section below, and move this file to `docs/plans/completed/`.
-- [ ] Commit: `chore(wasm-worker): finalise plan, mark complete`.
-- [ ] Push the branch and open **one** pull request covering all eight
+- [x] Commit: `chore(wasm-worker): finalise plan, mark complete`.
+- [x] Push the branch and open **one** pull request covering all eight
   phases/commits._
 
 Implementation must not begin before this plan reaches `Investigated` status,
@@ -1286,4 +1286,92 @@ already settled.
 
 ## Summary
 
-_Not started._
+- Replaced the web (WASM) backend's synchronous main-thread PDFium execution
+  with a dedicated `Worker` + hand-rolled `postMessage` RPC protocol —
+  `dart:isolate` is confirmed unusable on any web compile target, so this was
+  the only viable mechanism. The main thread is never blocked by PDFium work.
+- **Phase 1** extracted every PDFium call/marshalling operation (load, close,
+  pageCount, metadata, documentInfo, pageSize, render, thumbnail, extract
+  text/annotations/images, renderImage, search, toc) plus the module
+  bootstrap into a new worker-reusable engine module,
+  `_pdfium_wasm_engine.dart`, as a pure refactor with no behavioural change.
+- **Phase 2** added `_pdfium_worker_entry.dart` (the worker-side dispatch
+  shell), the pure-Dart wire protocol (`_pdfium_worker_protocol.dart`) and
+  its `dart:js_interop` glue (`_pdfium_worker_wire.dart`), and a new
+  maintainer-only `make build_wasm_worker` target that compiles the entry
+  point to the checked-in `lib/assets/pdfium_worker.js` artifact.
+  `fetch_wasm_assets.sh` now also copies that artifact into consumers'
+  `web/assets/pdfium/` output.
+- **Phase 3** rewrote `_document_web.dart`'s `PdfDocumentImpl` into a thin RPC
+  client: one shared `Worker` per page (multiplexing documents via opaque
+  tokens), request/response correlation via an id map, a per-token request
+  queue (`_sendForToken`) that serializes `close()` against in-flight
+  requests for the same document, transferable `ArrayBuffer`s for bitmap
+  results, and a `Finalizer` that posts a fire-and-forget close request
+  instead of touching the WASM heap directly.
+- **Phase 4** added `test/pdfium_wasm_engine_test.dart`, which bypasses the
+  Worker entirely (confirmed via direct reading of the pinned `test-1.31.2`
+  `chrome.dart` source that a spawned Worker is invisible to `dart test -p
+  chrome --coverage`'s CDP-based collector) and closed the pre-existing
+  ~7-point web coverage gap by wiring several previously-generated-but-unused
+  annotation fixtures (`annotated_extra.pdf`, `popup_freetext.pdf`,
+  `popup_multi.pdf`, `zero_ink_stroke.pdf`, `zero_polygon_vertices.pdf`,
+  `empty_uri_link.pdf`, `test/data/thumbnail_fixture.pdf`) into both the new
+  test file and `test/pdf_document_web_test.dart`. Final `make web_coverage`:
+  **92.8%** (1403/1512 lines), up from an 88.3%/83.5% pre-Phase-4 baseline.
+- **Phase 5** added Worker-RPC-timing-specific regression tests (close()
+  mid-stream, concurrent same-document requests, cross-document isolation);
+  the pre-existing end-to-end suite needed no timing adjustments — it passed
+  unchanged against the real Worker.
+- **Phase 6** gave `integration_test_app` a real `flutter create --platforms
+  web .` scaffold and confirmed `flutter build web` correctly serves the
+  `pdfium.wasm`/`pdfium.js`/`pdfium_worker.js` trio and that a plain HTTP
+  server (no COOP/COEP headers) serves it without error.
+- **Phase 7** updated `spec/01_binary_distribution.md` and added a "Web
+  Worker concurrency model" section to `spec/02_pdfium_isolate.md`, dropped
+  the "(beta)" qualifier in `README.md` and added the "Adopting the Web
+  Worker backend" migration guide, updated `CHANGELOG.md`, and marked the
+  roadmap follow-on items complete in `docs/roadmap/0_02.md`.
+
+**Deviations from the plan / notable findings:**
+
+- Two real bugs were found and fixed only because `make web_coverage`'s
+  stricter compile mode (and a from-scratch clean-environment re-run)
+  surfaced them where `make web_test`'s default compile mode and a
+  contaminated environment did not: (1) `wire.transfer.cast<JSAny>().toJS`
+  produced a lazy `CastList` that fails JS array conversion under that
+  compile mode — fixed by removing the unnecessary cast, since
+  `List<JSArrayBuffer>` already satisfies `.toJS`'s bound directly; (2)
+  transferring the caller's own `fromBytes(bytes)` buffer detached it on the
+  sender side, breaking any attempt to reuse the same buffer for a second
+  document — fixed by adding `WorkerRequest.transferBuffers` (default true,
+  false for `load`) so the input buffer is structured-clone-copied instead of
+  moved, matching native's copy-not-move semantics for caller-supplied input.
+- A third bug was environmental rather than a code defect:
+  `stage_wasm_test_assets` never staged `pdfium_worker.js` into
+  `test/assets/pdfium/`, and `fetch_wasm_assets.sh`'s bblanchon-build
+  idempotency marker skipped re-copying a locally rebuilt worker when the
+  PDFium version was unchanged — together these caused every worker-backed
+  test to hang until its 30-second timeout the first time a fully clean
+  environment was used. Both are fixed in the Phase 4 commit.
+- Phase 6's DevTools Performance-panel visual confirmation and
+  `flutter drive`-based web execution of `integration_test/pdfium_test.dart`
+  were **not performed** in this automated session (`flutter test -d chrome`
+  reports web integration tests are unsupported, and no `chromedriver` is
+  installed here). This is flagged as a recommended manual follow-up in both
+  the plan (Phase 6) and the README's migration checklist, rather than
+  blocking the rest of the plan — the underlying mechanism was independently
+  verified dozens of times via `dart test -p chrome` (a real, non-headless
+  Chrome instance) across Phases 3–5.
+- The roadmap file `docs/roadmap/0_02.md` now has all items marked complete,
+  which by project convention would normally mean relocating it to
+  `docs/roadmap/completed/`. That relocation was deliberately left undone —
+  it exceeds this plan's explicit "mark the item complete" instruction and
+  would require updating cross-references in several unrelated historical
+  completed-plan files. Recommend a follow-up housekeeping task if desired.
+- No design/inclusivity skill review was performed — Review 1/2 of this plan
+  both confirmed this work has no UI surface (it is backend infrastructure
+  inside a pure-Dart package), so those skills do not apply, aside from
+  adding a `lang="en"` attribute to the newly-scaffolded
+  `integration_test_app/web/index.html` per the inclusivity skill's web-lang
+  requirement.
