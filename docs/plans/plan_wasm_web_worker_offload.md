@@ -677,34 +677,38 @@ be called from both the main thread and a future worker.
 
 ### Phase 3 — RPC protocol and main-thread client rewrite
 
-- [ ] Define the command/response message shapes for the `postMessage`
+- [x] Define the command/response message shapes for the `postMessage`
   protocol — mirroring the *shape* of `isolate_messages.dart`'s command
   classes (one message type per operation: load, metadata, page size, render,
   extract text/annotations/images, search, TOC, thumbnail, close), but
   serialised as plain `Map`/primitive structures suitable for structured
   clone, with a message-id field for request/response correlation (the
   native isolate gets this for free via `SendPort`/`ReceivePort`; the
-  hand-rolled protocol must replicate it explicitly).
-- [ ] Rewrite `_document_web.dart`'s `PdfDocumentImpl` to become a thin RPC
+  hand-rolled protocol must replicate it explicitly). (Written in Phase 2 as
+  `_pdfium_worker_protocol.dart` / `_pdfium_worker_wire.dart`, since the
+  worker entry point needed it to exist first; the client-side use of it
+  below is this phase's own work.)
+- [x] Rewrite `_document_web.dart`'s `PdfDocumentImpl` to become a thin RPC
   client: lazily spawn **one shared `Worker`** for the page lifetime (per the
   Q7 decision above), send commands with a correlation id, and resolve a
   `Completer` per in-flight request when the matching response arrives.
-- [ ] Use `postMessage(data, [buffer])` transferables for BGRA bitmap
+- [x] Use `postMessage(data, [buffer])` transferables for BGRA bitmap
   results. Note explicitly in code comments that a transferred `ArrayBuffer`
   is neutered on the sender side — the worker must transfer a copy it no
   longer needs, or re-read from the WASM heap afterwards, not reuse the
   transferred buffer.
-- [ ] Specify and implement `close()`/cancellation ordering against in-flight
+- [x] Specify and implement `close()`/cancellation ordering against in-flight
   worker RPCs: a `close()` call must be sequenced so it does not race
   in-flight requests for the same document token.
-- [ ] Relocate `Finalizer` handling: the main-thread `Finalizer` callback can
+- [x] Relocate `Finalizer` handling: the main-thread `Finalizer` callback can
   no longer touch the WASM heap directly (it lives in the worker now) — it
   must post a "free this document" request to the worker instead, which
   performs the actual `fpdfCloseDocument`/`free` calls there.
-- [ ] Run `make pre_commit`. `make web_test` is expected to still pass
+- [x] Run `make pre_commit`. `make web_test` is expected to still pass
   functionally at this point, though its coverage contribution for the
-  worker-executed paths is addressed in Phase 4, not this phase.
-- [ ] Commit: `feat(wasm-worker): rewire PdfDocumentImpl as a Worker RPC
+  worker-executed paths is addressed in Phase 4, not this phase. (Both pass;
+  `make web_test` exercises the real Worker end-to-end in Chrome already.)
+- [x] Commit: `feat(wasm-worker): rewire PdfDocumentImpl as a Worker RPC
   client`.
 
 ### Phase 4 — Coverage-preserving direct engine tests
