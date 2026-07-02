@@ -19,12 +19,12 @@ downloaded automatically by the native-assets hook on first use.
 | Android arm64  | Supported               |
 | Android x86_64 | Supported               |
 | Windows x86_64 | Supported               |
-| Web (WASM)     | Supported (beta)        |
+| Web (WASM)     | Supported               |
 
-_"Beta" for Web (WASM): the full API surface works, but v1 runs synchronously
-on the browser main thread (no Web Worker offload yet) and the backend is
-newer and less battle-tested than the native platforms. See
-[Web (WASM)](#web-wasm) below._
+_Web (WASM): the full API surface works, and PDFium calls run inside a
+dedicated Web Worker rather than the browser main thread — see
+[Web (WASM)](#web-wasm) below for setup and the
+["Adopting the Web Worker backend"](#adopting-the-web-worker-backend) guide._
 
 ## Installation
 
@@ -364,9 +364,12 @@ thread-safe. All PDFium calls run on a dedicated background `Isolate`
 never blocked. The isolate is spawned lazily on the first
 `PdfDocument.fromBytes()` call and held for the process lifetime.
 
-**Web (WASM):** PDFium runs synchronously on the browser main thread via the
-Emscripten module. There is no isolate boundary. Large document operations
-may block the UI — see the [Web (WASM)](#web-wasm) section for details.
+**Web (WASM):** `dart:isolate` is not supported on any web compile target, so
+PDFium calls run inside a dedicated Web Worker instead, communicating with
+the main thread via a hand-rolled `postMessage` protocol — mirroring the
+*shape* of the native isolate architecture (single owner of PDFium state,
+typed request/response messages) via a different *mechanism*. The main thread
+is never blocked. See the [Web (WASM)](#web-wasm) section for details.
 
 ## Running the examples
 
@@ -384,38 +387,111 @@ See [example/README.md](example/README.md) for more details.
 
 `betto_pdfium` includes a `dart:js_interop`-based backend for Flutter web and
 `dart2wasm`. It uses the PDFium Emscripten module from
-[bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries).
+[bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries),
+running inside a dedicated Web Worker.
 
 ### Web setup (one-time per app)
 
-The PDFium WASM and JS files must be placed at `web/assets/pdfium/` in your
-Flutter app before building. Run the helper script from the repo root:
+The PDFium WASM, JS, and Worker files must be placed at `web/assets/pdfium/`
+in your Flutter app before building. Run the helper script from the repo root:
 
 ```sh
 make fetch_wasm_assets
 ```
 
-This downloads `pdfium-wasm.tgz`, verifies its SHA-256, and extracts
-`pdfium.wasm` and `pdfium.js` to the correct location. Re-run this after every
-`betto_pdfium` version bump that upgrades the bblanchon build number.
+This downloads `pdfium-wasm.tgz`, verifies its SHA-256, extracts
+`pdfium.wasm` and `pdfium.js`, and copies `betto_pdfium`'s own checked-in
+`pdfium_worker.js` (the compiled Web Worker entry point) alongside them — all
+three files, co-located. Re-run this after every `betto_pdfium` version bump.
 
-### Main-thread blocking (important)
+### Web Worker offload
 
-**v1 of the web backend runs synchronously on the browser main thread.** All
-PDFium calls block until they complete. For large or complex PDFs, individual
-operations may freeze the browser tab briefly.
+All PDFium calls run inside a dedicated Web Worker, not the browser main
+thread. `dart:isolate` is not supported on any web compile target
+(dart2js or dart2wasm), so the web backend uses a hand-rolled `Worker` +
+`postMessage` protocol instead — mirroring the *shape* of the native
+`PdfiumIsolate` architecture (single owner of PDFium state, typed
+request/response messages, opaque document tokens) via a different
+*mechanism*. One shared Worker is spawned lazily per page and reused across
+all open documents.
 
-The streaming methods (`extractPlainText`, `extractAnnotations`, etc.) yield
-between pages via `Future.delayed(Duration.zero)` to reduce jank, but this
-does **not** unblock the thread during a single long PDFium call within a page.
+No `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy` server
+headers are required — that requirement is specific to
+`SharedArrayBuffer`/shared-memory threading, which this message-passing
+protocol does not use.
 
-A Web Worker offload path is planned for a future release.
+See `spec/02_pdfium_isolate.md`'s "Web Worker concurrency model" section for
+the full architecture, and
+[`plan_wasm_web_worker_offload.md`](docs/plans/completed/plan_wasm_web_worker_offload.md)
+for the design investigation.
 
 ### Web usage
 
 The public API is identical on all platforms. No code changes are needed when
 targeting the web — the correct backend is selected automatically via Dart's
 conditional import mechanism.
+
+### Adopting the Web Worker backend
+
+This section is for maintainers of existing `betto_pdfium` web consumers
+(e.g. `betto_pdf_widgets`) upgrading from a pre-Worker-offload version.
+
+**What changes, and what doesn't.** The `PdfDocument` public API is
+completely unchanged — no code changes are required in your app. What
+changes is purely internal: PDFium calls that used to run synchronously on
+the browser main thread now run inside a dedicated Web Worker.
+
+**Distribution/setup delta.** `make fetch_wasm_assets` now places three files
+at `web/assets/pdfium/` instead of two: `pdfium.wasm`, `pdfium.js`, and the
+new `pdfium_worker.js`. You do not need to reference `pdfium_worker.js`
+anywhere in your own code or `web/index.html` — `betto_pdfium` spawns the
+Worker itself from a well-known relative URL. Just make sure your build/deploy
+process serves the whole `web/assets/pdfium/` directory, as it presumably
+already does for `pdfium.wasm`/`pdfium.js`.
+
+**New behavioural characteristics worth testing.** The main thread no longer
+blocks during large renders or extractions — this is the whole point of the
+change, but it has a real UX implication: **any loading indicator in your UI
+that was previously optional or purely cosmetic (because the main-thread
+freeze made the point moot) may now be load-bearing.** A large-document
+render that used to freeze the whole tab (implicitly communicating "something
+is happening") now returns control to the UI immediately while the work
+continues in the background — if your UI doesn't show its own progress state
+for that `Future`, users may perceive the app as idle rather than working.
+Audit call sites of `renderPageToBytes`, `getThumbnail`, and the streaming
+extraction methods for large documents and confirm they show appropriate
+loading/progress UI.
+
+**Migration checklist:**
+
+1. Bump your `betto_pdfium` dependency.
+2. Re-run `make fetch_wasm_assets` (or your equivalent asset-sync step).
+3. Confirm `pdfium_worker.js` is present in your deployed `web/assets/pdfium/`
+   output alongside `pdfium.wasm`/`pdfium.js`.
+4. Smoke-test opening and rendering a large document on web.
+5. Open Chrome DevTools' Performance panel, record a large-document render,
+   and confirm the main thread's timeline stays free of long tasks during the
+   render (the work should now appear on a separate Worker thread track).
+6. Audit loading-state UI for renders/extractions per the behavioural note
+   above.
+
+**Known limitations carried over or newly introduced:**
+
+- Worker startup (module bootstrap + WASM instantiation) happens once per
+  page lifetime, same as the previous main-thread module load — no new
+  first-load latency beyond what already existed.
+- Streaming methods (`extractPlainText`, `extractAnnotations`,
+  `extractImages`, `search`) fetch all requested pages in a single Worker
+  round trip rather than incrementally; the public `Stream` API's
+  page-by-page yielding is preserved locally on the client side, but very
+  large documents mean the Worker computes everything before the first item
+  is yielded (still off the main thread, so this does not block the UI, but
+  it means the stream's first `yield` may take as long as the whole
+  operation for extremely large documents).
+- Multiple documents open at once on the same page share one Worker and are
+  processed one request at a time (matching the native backend's own
+  single-isolate-serializes-everything model) — they do not render/extract
+  in true parallel.
 
 ```dart
 // Works identically on native and web.

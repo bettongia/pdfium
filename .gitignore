@@ -17,3 +17,9 @@ dist/
 build-logs/
 doc/
 logs/
+
+# dart compile js side-artifacts for the checked-in PDFium Worker bundle
+# (lib/assets/pdfium_worker.js is committed; these debug/build-metadata
+# side-files are not — see `make build_wasm_worker`).
+packages/betto_pdfium/lib/assets/pdfium_worker.js.map
+packages/betto_pdfium/lib/assets/pdfium_worker.js.deps

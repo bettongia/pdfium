@@ -455,6 +455,139 @@ void main() {
         expect(withPopup, isNotEmpty);
       });
 
+      test(
+        'popup_freetext.pdf — PdfFreeTextAnnotation has a non-null popup',
+        () async {
+          doc = await PdfDocument.fromBytes(
+            await _fetchFixture('popup_freetext.pdf'),
+          );
+          final pages = await doc.extractAnnotations().toList();
+          final all = pages.expand((p) => p.annotations).toList();
+          final freeTextWithPopup = all
+              .whereType<PdfFreeTextAnnotation>()
+              .where((a) => a.popup != null)
+              .toList();
+          expect(freeTextWithPopup, isNotEmpty);
+          // Exercise PdfFreeTextAnnotation equality/hashCode/toString directly
+          // (a separate construction from the extracted one, same fields).
+          final a = freeTextWithPopup.first;
+          final copy = PdfFreeTextAnnotation(
+            pageIndex: a.pageIndex,
+            contents: a.contents,
+            author: a.author,
+            rect: a.rect,
+            color: a.color,
+            modifiedDate: a.modifiedDate,
+            flags: a.flags,
+            popup: a.popup,
+          );
+          expect(copy, equals(a));
+          expect(copy.hashCode, equals(a.hashCode));
+          expect(copy.toString(), contains('PdfFreeTextAnnotation'));
+        },
+      );
+
+      test('popup_multi.pdf — multiple annotations have popups', () async {
+        doc = await PdfDocument.fromBytes(
+          await _fetchFixture('popup_multi.pdf'),
+        );
+        final pages = await doc.extractAnnotations().toList();
+        final all = pages.expand((p) => p.annotations).toList();
+        final withPopup = all.where((a) => a.popup != null).toList();
+        expect(withPopup.length, greaterThan(1));
+      });
+
+      test(
+        'zero_ink_stroke.pdf — ink annotation with zero-point stroke is returned',
+        () async {
+          doc = await PdfDocument.fromBytes(
+            await _fetchFixture('zero_ink_stroke.pdf'),
+          );
+          final pages = await doc.extractAnnotations().toList();
+          final inkAnnots = pages
+              .expand((p) => p.annotations)
+              .whereType<PdfInkAnnotation>()
+              .toList();
+          expect(inkAnnots, isNotEmpty);
+          expect(inkAnnots.first.strokes, isNotEmpty);
+          expect(inkAnnots.first.strokes.first, isEmpty);
+        },
+      );
+
+      test(
+        'zero_polygon_vertices.pdf — polygon with empty vertices does not throw',
+        () async {
+          doc = await PdfDocument.fromBytes(
+            await _fetchFixture('zero_polygon_vertices.pdf'),
+          );
+          final pages = await doc.extractAnnotations().toList();
+          final polygons = pages
+              .expand((p) => p.annotations)
+              .whereType<PdfPolygonAnnotation>()
+              .toList();
+          expect(polygons, isNotEmpty);
+          expect(polygons.first.vertices, isEmpty);
+        },
+      );
+
+      test(
+        'annotated_extra.pdf — squiggly, strikeout, stamp, freetext, polygon',
+        () async {
+          doc = await PdfDocument.fromBytes(
+            await _fetchFixture('annotated_extra.pdf'),
+          );
+          final pages = await doc.extractAnnotations().toList();
+          final all = pages.expand((p) => p.annotations).toList();
+
+          final markups = all.whereType<PdfMarkupAnnotation>().toList();
+          expect(
+            markups.map((m) => m.subtype),
+            containsAll([
+              PdfAnnotationType.squiggly,
+              PdfAnnotationType.strikeout,
+            ]),
+          );
+
+          final stamps = all.whereType<PdfStampAnnotation>().toList();
+          expect(stamps, isNotEmpty);
+          final stampCopy = PdfStampAnnotation(
+            pageIndex: stamps.first.pageIndex,
+            contents: stamps.first.contents,
+            author: stamps.first.author,
+            rect: stamps.first.rect,
+            color: stamps.first.color,
+            modifiedDate: stamps.first.modifiedDate,
+            flags: stamps.first.flags,
+            popup: stamps.first.popup,
+          );
+          expect(stampCopy, equals(stamps.first));
+          expect(stampCopy.hashCode, equals(stamps.first.hashCode));
+          expect(stampCopy.toString(), contains('PdfStampAnnotation'));
+
+          final freeTexts = all.whereType<PdfFreeTextAnnotation>().toList();
+          expect(freeTexts, isNotEmpty);
+
+          final polygons = all.whereType<PdfPolygonAnnotation>().toList();
+          expect(polygons, isNotEmpty);
+          expect(polygons.first.vertices, isNotEmpty);
+          final polygonCopy = PdfPolygonAnnotation(
+            pageIndex: polygons.first.pageIndex,
+            subtype: polygons.first.subtype,
+            vertices: polygons.first.vertices,
+            contents: polygons.first.contents,
+            author: polygons.first.author,
+            rect: polygons.first.rect,
+            color: polygons.first.color,
+            modifiedDate: polygons.first.modifiedDate,
+            flags: polygons.first.flags,
+            popup: polygons.first.popup,
+          );
+          expect(polygonCopy, equals(polygons.first));
+          expect(polygonCopy.hashCode, equals(polygons.first.hashCode));
+          expect(polygonCopy.toString(), contains('PdfPolygonAnnotation'));
+        },
+      );
+
       test('yields one entry per page for multi-page PDF', () async {
         doc = await PdfDocument.fromBytes(
           await _fetchFixture('multi_page_annotated.pdf'),
@@ -472,7 +605,79 @@ void main() {
         expect(pages.length, equals(1));
         expect(pages.first.pageIndex, equals(0));
       });
+
+      test(
+        'close() during active extractAnnotations stream terminates cleanly',
+        () async {
+          // Regression test for worker RPC timing (Phase 5): extractAnnotations
+          // fetches all pages in a single worker round trip, then yields them
+          // locally. close() mid-stream is routed through the same per-token
+          // request queue as the original request, so it must not race or
+          // corrupt the in-flight extraction.
+          doc = await PdfDocument.fromBytes(
+            await _fetchFixture('multi_page_annotated.pdf'),
+          );
+          final results = <PdfPageAnnotations>[];
+          await for (final page in doc.extractAnnotations()) {
+            results.add(page);
+            await doc.close();
+          }
+          // Only the first page should have been collected before close().
+          expect(results, hasLength(1));
+        },
+      );
     });
+  });
+
+  // Worker RPC timing: concurrency and ordering (Phase 5).
+  group('PdfDocument web — Worker RPC timing', () {
+    test(
+      'concurrent operations on the same document are serialized correctly',
+      () async {
+        final doc = await PdfDocument.fromBytes(
+          await _fetchFixture('multi_page_annotated.pdf'),
+        );
+        try {
+          // Fire several requests concurrently for the same document token;
+          // the per-token request queue (_sendForToken) must serialize them
+          // without cross-talk or corruption.
+          final results = await Future.wait([
+            doc.pageCount,
+            doc.getMetadata(),
+            doc.pageCount,
+            doc.extractAnnotations().toList(),
+            doc.pageCount,
+          ]);
+          expect(results[0], equals(results[2]));
+          expect(results[2], equals(results[4]));
+        } finally {
+          await doc.close();
+        }
+      },
+    );
+
+    test(
+      'closing one document does not affect concurrent operations on another',
+      () async {
+        final docA = await PdfDocument.fromBytes(
+          await _fetchFixture('no_annotations.pdf'),
+        );
+        final docB = await PdfDocument.fromBytes(
+          await _fetchFixture('full_metadata.pdf'),
+        );
+        try {
+          final bPageCountFuture = docB.pageCount;
+          await docA.close();
+          // docB's in-flight request (and the document itself) must be
+          // unaffected by docA's close(), since requests are only serialized
+          // per-token, not globally.
+          expect(await bPageCountFuture, equals(1));
+          expect(await docB.pageCount, equals(1));
+        } finally {
+          await docB.close();
+        }
+      },
+    );
   });
 
   // Phase 2d: rendering and thumbnails.

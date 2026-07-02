@@ -43,7 +43,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: packages/betto_pdfium/.dart_tool/betto_pdfium
-          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
+          key:
+            pdfium-${{ runner.os }}-${{
+            hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
 
       - run: make cicd
 
@@ -71,7 +73,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: packages/betto_pdfium/.dart_tool/betto_pdfium
-          key: pdfium-${{ runner.os }}-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
+          key:
+            pdfium-${{ runner.os }}-${{
+            hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
 
       - name: dart pub get
         shell: bash
@@ -110,7 +114,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: packages/betto_pdfium/integration_test_app/web/assets/pdfium
-          key: pdfium-wasm-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD') }}
+          key:
+            pdfium-wasm-${{ hashFiles('packages/betto_pdfium/BBLANCHON_BUILD')
+            }}
 
       - name: dart pub get
         run: cd packages/betto_pdfium && dart pub get
@@ -122,6 +128,7 @@ jobs:
   deployment:
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'push'
 
     environment:
       name: github-pages

@@ -4,3 +4,4 @@
 # directory before running `dart test -p chrome`.
 pdfium.js
 pdfium.wasm
+pdfium_worker.js

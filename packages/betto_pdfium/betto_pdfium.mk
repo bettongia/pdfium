@@ -112,6 +112,21 @@ ffi_bindings:
 	@echo "ffi_bindings: done. Review and commit lib/src/generated/pdfium_bindings.dart"
 .PHONY: ffi_bindings
 
+# build_wasm_worker: regenerate the checked-in PDFium Worker entry-point
+# bundle (lib/assets/pdfium_worker.js) from lib/src/document/_pdfium_worker_entry.dart.
+# Maintainer-only — run after changing _pdfium_worker_entry.dart or any file
+# it depends on (the marshalling engine, wire protocol, or JS interop
+# bindings). Consumers never run this; they receive the pre-compiled artifact
+# via `make fetch_wasm_assets`. Analogous in spirit to
+# `make repack_ios_xcframework` — a release-time regeneration step.
+build_wasm_worker:
+	@mkdir -p $(BETTO_PKG)/lib/assets
+	cd $(BETTO_PKG) && dart compile js -O2 \
+	  -o lib/assets/pdfium_worker.js \
+	  lib/src/document/_pdfium_worker_entry.dart
+	@echo "build_wasm_worker: done. Review and commit lib/assets/pdfium_worker.js"
+.PHONY: build_wasm_worker
+
 fixtures:
 	@echo "fixtures: installing Python dependencies ..."
 	pip3 install --break-system-packages -r $(BETTO_PKG)/test/fixtures/generate/requirements.txt \
@@ -189,7 +204,7 @@ fetch_wasm_assets:
 # symlink from test/assets/pdfium/ to avoid duplicating the ~4 MB WASM binary.
 stage_wasm_test_assets: fetch_wasm_assets
 	@mkdir -p $(BETTO_PKG)/test/assets/pdfium
-	@for f in pdfium.js pdfium.wasm; do \
+	@for f in pdfium.js pdfium.wasm pdfium_worker.js; do \
 	  src=$(BETTO_PKG)/integration_test_app/web/assets/pdfium/$$f; \
 	  dst=$(BETTO_PKG)/test/assets/pdfium/$$f; \
 	  if [ ! -f "$$src" ]; then \
@@ -205,12 +220,20 @@ stage_wasm_test_assets: fetch_wasm_assets
 # in headless Chrome. Requires Chrome to be installed on the host.
 # Fixtures are served from the test/ directory by dart test's local server.
 #
+# test/pdfium_wasm_engine_test.dart calls the PDFium marshalling engine
+# (_pdfium_wasm_engine.dart) directly on the main thread, bypassing the
+# Worker entirely — worker-executed code is a separate CDP target invisible
+# to dart test's coverage collector (see the Web Worker offload plan's
+# "Testing impact" section), so this file is what keeps that logic visible to
+# web_coverage below.
+#
 # Also runs the platform-agnostic unit-test files (no dart:io/dart:ffi
 # imports) under the browser platform, alongside the dedicated web suite —
 # without these, their coverage never counts toward web_coverage below, even
 # though the code they test (shared model/utility files) is real web-relevant
 # source.
-WEB_TEST_FILES := test/pdf_document_web_test.dart test/bitmap_util_test.dart \
+WEB_TEST_FILES := test/pdf_document_web_test.dart test/pdfium_wasm_engine_test.dart \
+	test/bitmap_util_test.dart \
 	test/pdf_types_test.dart test/pdf_date_parser_test.dart \
 	test/pdf_page_size_test.dart
 
