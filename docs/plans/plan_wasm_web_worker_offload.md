@@ -1,6 +1,6 @@
 # Web (WASM) Backend — Web Worker Offload
 
-**Status**: Investigated
+**Status**: Implementing
 
 **PR link**: _pending_
 
