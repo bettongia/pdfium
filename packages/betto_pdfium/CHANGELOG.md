@@ -13,9 +13,18 @@ In progress
   `dart2wasm` via `dart:js_interop`, covering the complete API surface
   (metadata, text/annotation/image extraction, rendering, search, table of
   contents, thumbnails). Run `make fetch_wasm_assets` to place the PDFium WASM +
-  JS artifact in your app's `web/assets/pdfium/` directory; see the package
-  README for setup. v1 runs synchronously on the browser main thread — large
-  documents may block the UI during a single call.
+  JS + Worker artifacts in your app's `web/assets/pdfium/` directory; see the
+  package README for setup.
+- **Web (WASM) — Web Worker offload** — PDFium calls on web now run inside a
+  dedicated Web Worker instead of the browser main thread, so large document
+  operations no longer block the UI. `dart:isolate` is not supported on web,
+  so this uses a hand-rolled `Worker` + `postMessage` protocol mirroring the
+  native `PdfiumIsolate` architecture's shape. `make fetch_wasm_assets` now
+  also copies the checked-in `pdfium_worker.js` artifact alongside
+  `pdfium.wasm`/`pdfium.js` — no other consumer-facing change. See the
+  README's "Web (WASM)" section, including the "Adopting the Web Worker
+  backend" migration guide, and `spec/02_pdfium_isolate.md`'s "Web Worker
+  concurrency model" section.
 
 ## 0.1.0-dev.2 — 2026-06-30
 

@@ -822,23 +822,35 @@ Phase 6 scaffolding forward rather than working around it here.
 
 ### Phase 7 — Documentation, spec updates, and the adoption guide
 
-- [ ] Update `spec/01_binary_distribution.md`: lines 251–257 currently state
+- [x] Update `spec/01_binary_distribution.md`: lines 251–257 currently state
   main-thread blocking is "deferred to a future roadmap item" — rewrite this
   now that it has shipped, and document the `pdfium_worker.js` artifact and
-  `make build_wasm_worker`.
-- [ ] Add a web-worker concurrency section to `spec/02_pdfium_isolate.md`
+  `make build_wasm_worker`. (Also updated stale "deferred"/"main-thread
+  blocking" language found in `spec/03_text_extraction.md` and
+  `spec/05_metadata_extraction.md` while touching this area, since leaving
+  them would have been actively misleading post-ship.)
+- [x] Add a web-worker concurrency section to `spec/02_pdfium_isolate.md`
   alongside the existing native isolate description, so both backends'
   concurrency models are documented in one place.
-- [ ] Update `README.md`: drop (or rephrase) the "(beta)" qualifier on Web
+- [x] Update `README.md`: drop (or rephrase) the "(beta)" qualifier on Web
   (WASM) platform support now that main-thread blocking is resolved, and add
   the "Adopting the Web Worker backend" guide (see "Downstream consumer
   adoption guide" above) — public API unchanged, distribution/setup delta,
   new behavioural characteristics worth testing, a numbered migration
-  checklist, and any carried-over limitations.
-- [ ] Update `CHANGELOG.md` under the in-progress version entry.
-- [ ] Update `docs/roadmap/0_02.md` to mark the "Web backend: Web Worker
-  offload" follow-on item complete.
-- [ ] Commit: `docs(wasm-worker): update specs, README, CHANGELOG, roadmap`.
+  checklist, and any carried-over limitations. (Dropped "(beta)" — the
+  Phase 6 caveat about manual DevTools confirmation being outstanding is
+  folded into the migration checklist's step 5 instead of blocking the
+  qualifier drop, since the underlying functional gap (main-thread blocking)
+  is resolved and extensively automated-tested; only a final visual
+  confirmation remains, which is normal pre-release polish.)
+- [x] Update `CHANGELOG.md` under the in-progress version entry.
+- [x] Update `docs/roadmap/0_02.md` to mark the "Web backend: Web Worker
+  offload" follow-on item complete. (Left the roadmap file in place rather
+  than relocating it to `docs/roadmap/completed/` even though all its items
+  are now complete — that relocation goes beyond this checklist item's
+  explicit scope and would require updating cross-references in several
+  unrelated historical completed-plan files; out of scope here.)
+- [x] Commit: `docs(wasm-worker): update specs, README, CHANGELOG, roadmap`.
 
 ### Phase 8 — Finalise
 

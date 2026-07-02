@@ -229,37 +229,68 @@ and `lib/pdfium.js` (the Emscripten glue). No Emscripten build is required.
 ### Distribution mechanism
 
 `betto_pdfium` is a pure-Dart package with no Flutter dependency; it cannot
-declare Flutter web assets on the user's behalf. WASM assets are distributed
-as a developer-side static file copy:
+declare Flutter web assets on the user's behalf. WASM assets — now a
+**trio**, not a pair — are distributed as a developer-side static file copy:
 
 1. Run `make fetch_wasm_assets` (or `scripts/fetch_wasm_assets.sh` directly).
    This downloads `pdfium-wasm.tgz`, verifies its SHA-256, and extracts
    `pdfium.js` and `pdfium.wasm` to
    `integration_test_app/web/assets/pdfium/` (default; override via
-   `WASM_OUTPUT_DIR`).
+   `WASM_OUTPUT_DIR`). The same step also (re-)copies `betto_pdfium`'s own
+   checked-in `lib/assets/pdfium_worker.js` — the compiled PDFium Worker
+   entry point (see "Web Worker offload" below) — into the same output
+   directory, unconditionally, independent of the bblanchon-build
+   idempotency check that gates the tarball download.
 2. Copy the extracted files to your Flutter web app's `web/assets/pdfium/`
-   directory (or run the script with `WASM_OUTPUT_DIR` pointing there).
-3. The `_document_web.dart` backend loads the module from the relative URL
-   `assets/pdfium/pdfium.js` at the app origin.
+   directory (or run the script with `WASM_OUTPUT_DIR` pointing there). All
+   three files — `pdfium.js`, `pdfium.wasm`, `pdfium_worker.js` — must be
+   co-located.
+3. The `_document_web.dart` backend spawns a dedicated `Worker` from the
+   relative URL `assets/pdfium/pdfium_worker.js` at the app origin, which in
+   turn loads `assets/pdfium/pdfium.js` via `importScripts()`.
 
-Run this once per PDFium version bump, or in CI before a web build. The script
-is idempotent — it skips extraction if the target directory already holds the
-correct build number.
+Run this once per PDFium version bump, or in CI before a web build. The
+tarball-download step is idempotent — it skips extraction if the target
+directory already holds the correct build number — but the
+`pdfium_worker.js` copy always runs, so a locally rebuilt worker (via `make
+build_wasm_worker`, a maintainer-only step) is always picked up.
 
-### Runtime behaviour
+### Web Worker offload
 
-- **Main-thread blocking**: PDFium WASM runs synchronously on the browser main
-  thread. Large document operations (rendering a complex page, extracting text
-  from a 300-page document) will freeze the browser tab for the duration of
-  the call. Streaming methods yield between pages via
-  `Future.delayed(Duration.zero)`, which reduces jank between pages but does
-  **not** unblock the main thread during a single long PDFium call. A Web
-  Worker offload path is deferred to a future roadmap item.
-- **Memory management**: the PDF byte buffer is copied into the WASM heap via
-  `Module["_malloc"]` and must remain allocated for the entire lifetime of the
-  open document. `Module["_free"]` is called on `close()`. A `Finalizer`
-  (backed by `FinalizationRegistry`) provides a leak-prevention backstop if
-  `close()` is not called explicitly.
+PDFium WASM work no longer runs on the browser main thread. All PDFium calls
+are dispatched to a dedicated `Worker` (`pdfium_worker.js`, compiled from
+`lib/src/document/_pdfium_worker_entry.dart` via `dart compile js`) over a
+hand-rolled `postMessage` request/response protocol — `dart:isolate` is not
+usable on web (confirmed against the Flutter and Dart docs; isolates are
+unsupported on all web compile targets, and `compute()` on web runs on the
+main thread). See `spec/02_pdfium_isolate.md`'s "Web Worker concurrency
+model" section for the full protocol description.
+
+Consequences for distribution specifically:
+
+- **`pdfium_worker.js` is a `betto_pdfium`-authored artifact**, not part of
+  the bblanchon tarball. It is pre-compiled once by `betto_pdfium`'s own
+  release process (`make build_wasm_worker`) and checked into
+  `lib/assets/pdfium_worker.js`, mirroring how `pdfium.wasm`/`pdfium.js`
+  themselves are pre-built binaries the package merely distributes.
+- **One shared `Worker` per page**, spawned lazily on the first
+  `PdfDocument.fromBytes()` call and reused by every open document
+  (multiplexed via opaque integer tokens) — mirroring the native backend's
+  one-isolate-per-process `PdfiumIsolate` model.
+- **No `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy` headers
+  are required.** That requirement is specific to `SharedArrayBuffer`/shared-
+  memory threading; a message-copy/transfer `Worker` + `postMessage` protocol
+  does not need it, and the bundled `pdfium.wasm` has no threads and no
+  Asyncify. Verified empirically: `build/web` served via a plain HTTP server
+  with no cross-origin-isolation headers loads and functions correctly.
+- **Memory management**: the PDF byte buffer is copied into the WASM heap
+  (inside the worker) via `Module["_malloc"]` and must remain allocated for
+  the entire lifetime of the open document; `Module["_free"]` is called on
+  `close()`. A main-thread `Finalizer` (backed by `FinalizationRegistry`)
+  provides a leak-prevention backstop if `close()` is not called explicitly —
+  since the heap now lives in the worker, the Finalizer callback posts a
+  fire-and-forget "close" request to the worker rather than freeing memory
+  directly.
 
 ## iOS xcframework
 
