@@ -52,8 +52,10 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
 import 'package:web/web.dart' as web;
 
+import '../pdf_exception.dart';
 import '../rendering/pdf_page_size.dart';
 import '_pdfium_worker_protocol.dart';
 import '_pdfium_worker_wire.dart';
@@ -96,13 +98,28 @@ class PdfDocumentImpl {
   ///
   /// A response whose id has no matching entry (e.g. the eventual reply to a
   /// [Finalizer]-triggered fire-and-forget `close` request) is silently
-  /// ignored — see [_onMessage].
+  /// ignored — see [_onMessage]. Entries are removed on normal response
+  /// arrival, on [_requestTimeout] elapsing (see [_send]), and — for every
+  /// remaining entry at once — when the worker itself fails (see
+  /// [_onWorkerError] / [_onWorkerMessageError]), so this map cannot grow
+  /// unboundedly even if the worker never responds.
   static final Map<int, Completer<WorkerResponse>> _pending = {};
+
+  /// How long [_send] waits for a [WorkerResponse] before giving up.
+  ///
+  /// Set well above [_pdfium_worker_entry.dart]'s own 30s WASM-module-load
+  /// timeout, since the first request against a cold worker implicitly waits
+  /// on that internal load to either succeed or time out before a response
+  /// (success or failure) can be posted back.
+  static const Duration _requestTimeout = Duration(seconds: 45);
 
   /// Per-document request queues. Every request for a given token is
   /// chained onto the previous one via [_sendForToken], guaranteeing that a
   /// `close()` call is never processed by the worker while an earlier
-  /// request for the same token is still in flight (and vice versa).
+  /// request for the same token is still in flight (and vice versa). The
+  /// entry for a token is removed once [close] completes (see [close]), so
+  /// this map cannot grow unboundedly across a long-lived page that opens
+  /// and closes many documents over time.
   static final Map<int, Future<void>> _tokenQueues = {};
 
   /// Safety-net Finalizer: if a [PdfDocumentImpl] is GC'd without [close]
@@ -137,6 +154,8 @@ class PdfDocumentImpl {
 
     final worker = web.Worker('assets/pdfium/pdfium_worker.js'.toJS);
     worker.onmessage = _onMessage.toJS;
+    worker.onerror = _onWorkerError.toJS;
+    worker.onmessageerror = _onWorkerMessageError.toJS;
     _worker = worker;
     return worker;
   }
@@ -147,6 +166,86 @@ class PdfDocumentImpl {
     final response = parseResponseMessage(data as JSObject);
     _pending.remove(response.id)?.complete(response);
   }
+
+  /// Handles the `Worker`'s `error` event — fired when the worker script
+  /// itself fails to load (e.g. `pdfium_worker.js` 404s, or is served from
+  /// the wrong path) or throws an uncaught exception.
+  ///
+  /// Without this handler, every in-flight and future request against a
+  /// broken worker would hang forever: `_onMessage` never fires, so no
+  /// [_pending] completer is ever resolved. This fails them all immediately
+  /// with a descriptive [PdfiumException] instead.
+  // coverage:ignore-start
+  // Deliberately triggering a real Worker `error` event (e.g. a 404'd
+  // worker script) from a `dart test -p chrome` suite requires test-only
+  // plumbing to swap the worker URL. These two handlers are thin wrappers
+  // around _failAllPending, which is directly covered instead — see
+  // debugFailAllPending below and test/pdfium_worker_rpc_failure_test.dart.
+  static void _onWorkerError(web.Event event) {
+    final detail = event.isA<web.ErrorEvent>()
+        ? (event as web.ErrorEvent).message
+        : 'unknown error';
+    _failAllPending(
+      'PDFium worker failed to load or crashed'
+      '${detail.isEmpty ? '' : ': $detail'}. Verify pdfium_worker.js is '
+      'deployed alongside pdfium.wasm/pdfium.js at assets/pdfium/ in your '
+      'web build output.',
+    );
+  }
+
+  /// Handles the `Worker`'s `messageerror` event — fired when a posted
+  /// message cannot be deserialized by the structured clone algorithm.
+  static void _onWorkerMessageError(web.MessageEvent event) {
+    _failAllPending(
+      'PDFium worker sent a message that could not be deserialized.',
+    );
+  }
+  // coverage:ignore-end
+
+  /// Fails every currently in-flight request with a [PdfiumException]
+  /// carrying [reason], and clears [_pending] so no completer is left
+  /// dangling. Used when the worker itself is unusable (see
+  /// [_onWorkerError] / [_onWorkerMessageError]) rather than a single
+  /// request having failed.
+  static void _failAllPending(String reason) {
+    final error = PdfiumException(reason);
+    final completers = _pending.values.toList(growable: false);
+    _pending.clear();
+    for (final completer in completers) {
+      if (!completer.isCompleted) completer.completeError(error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Test-only hooks
+  // ---------------------------------------------------------------------------
+  //
+  // A real broken-Worker `error`/`messageerror` event can't be triggered
+  // deterministically from `dart test -p chrome` without swapping the
+  // hardcoded worker URL, so these hooks let
+  // test/pdfium_worker_rpc_failure_test.dart exercise _failAllPending's
+  // leak-prevention behavior directly: register a fake in-flight request,
+  // simulate a worker failure, and assert the request fails instead of
+  // hanging and that its entry is removed from _pending.
+
+  /// Registers a completer in [_pending] as if a real request were in
+  /// flight, without sending anything to a worker. Test-only.
+  @visibleForTesting
+  static ({int id, Future<WorkerResponse> future})
+  debugRegisterPendingRequest() {
+    final id = _nextRequestId++;
+    final completer = Completer<WorkerResponse>();
+    _pending[id] = completer;
+    return (id: id, future: completer.future);
+  }
+
+  /// Whether [id] still has an entry in [_pending]. Test-only.
+  @visibleForTesting
+  static bool debugHasPending(int id) => _pending.containsKey(id);
+
+  /// Test-only forwarder for [_failAllPending].
+  @visibleForTesting
+  static void debugFailAllPending(String reason) => _failAllPending(reason);
 
   /// Sends a request and awaits its response, throwing a reconstructed
   /// exception when the worker reports failure.
@@ -174,7 +273,24 @@ class PdfDocumentImpl {
     // why a `CastList` breaks under stricter compile modes.
     worker.postMessage(wire.message, wire.transfer.toJS);
 
-    final response = await completer.future;
+    final response = await completer.future.timeout(
+      _requestTimeout,
+      onTimeout: () {
+        // coverage:ignore-start
+        // Deliberately starving a request of its response (without a
+        // broken worker, which is covered by _onWorkerError instead)
+        // requires test-only plumbing; tracked as a follow-up regression
+        // test in the Web Worker offload plan.
+        _pending.remove(id);
+        throw PdfiumException(
+          'PDFium worker did not respond to "$op" within $_requestTimeout. '
+          'The worker may have failed to start — verify pdfium_worker.js is '
+          'deployed alongside pdfium.wasm/pdfium.js at assets/pdfium/ in '
+          'your web build output.',
+        );
+        // coverage:ignore-end
+      },
+    );
     if (!response.ok) {
       throw reconstructError(response.errorType, response.errorMessage);
     }
@@ -248,6 +364,13 @@ class PdfDocumentImpl {
     _closed = true;
     _finalizer.detach(this);
     await _sendForToken(_token, WorkerOp.close, const {});
+    // Safe to drop the queue entry now: every public method checks
+    // _checkNotClosed() (and this method set _closed = true, synchronously,
+    // before the first await above) so nothing can enqueue further work for
+    // this token via _sendForToken after this point. Without this, a
+    // long-lived page that opens and closes many documents over its
+    // lifetime would grow _tokenQueues unboundedly.
+    _tokenQueues.remove(_token);
   }
 
   /// Returns the total number of pages in this document.

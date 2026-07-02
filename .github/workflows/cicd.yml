@@ -125,6 +125,36 @@ jobs:
         env:
           CHROME_EXECUTABLE: /usr/local/bin/chrome-no-sandbox
 
+  # ---------- Web: checked-in Worker artifact freshness gate ----------
+  # lib/assets/pdfium_worker.js is a compiled build artifact (dart compile js
+  # of _pdfium_worker_entry.dart and everything it pulls in — notably the
+  # PDFium marshalling engine). Nothing else in CI rebuilds or diff-checks
+  # it, so a source change that isn't followed by `make build_wasm_worker`
+  # would otherwise ship silently stale. Fail the build if regenerating it
+  # produces a diff.
+  verify-wasm-worker:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: dart pub get
+        run: cd packages/betto_pdfium && dart pub get
+
+      - run: make build_wasm_worker
+
+      - name: Verify pdfium_worker.js matches its Dart source
+        run: |
+          if ! git diff --exit-code -- packages/betto_pdfium/lib/assets/pdfium_worker.js; then
+            echo "::error::packages/betto_pdfium/lib/assets/pdfium_worker.js is stale relative to its Dart source (_pdfium_worker_entry.dart and its dependencies). Run 'make build_wasm_worker' locally and commit the regenerated file."
+            exit 1
+          fi
+
   deployment:
     runs-on: ubuntu-latest
     needs: build

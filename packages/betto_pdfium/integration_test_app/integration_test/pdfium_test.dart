@@ -34,8 +34,6 @@
 // Fixtures mirror test/fixtures/ and test/data/ in the root package.
 // They are kept in sync by `make sync_fixtures`.
 
-import 'dart:typed_data';
-
 import 'package:betto_pdfium/betto_pdfium.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
