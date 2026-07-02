@@ -12,8 +12,9 @@ Annotation extraction is implemented via `fpdf_annot.h`, which is marked
 behind a Dart abstraction layer so that upstream signature changes are localised
 to the implementation files and do not break callers.
 
-**Platform availability:** native platforms only (iOS, Android, macOS, Windows,
-Linux). The stub and web backends throw `UnsupportedError`. Form-field annotations
+**Platform availability:** native platforms (iOS, Android, macOS, Windows,
+Linux) and web (PDFium WASM via the worker). The stub backend throws
+`UnsupportedError`. Form-field annotations
 (`FPDF_ANNOT_WIDGET`, `FPDF_ANNOT_XFAWIDGET`) are out of scope for v0.02 and are
 earmarked for a dedicated form-extraction plan.
 
@@ -162,7 +163,8 @@ UI isolate is never blocked. The isolate uses a two-pass algorithm per page:
    retrieve the parent handle, look it up in the first-pass index by page-annotation
    index (`FPDFPage_GetAnnotIndex()`), and inline the popup data onto the parent.
 
-On the stub (non-FFI) and web backends, `extractAnnotations()` throws
+On web, `extractAnnotations()` runs inside the dedicated Web Worker hosting the
+PDFium WASM build. On the stub (non-FFI) backend, `extractAnnotations()` throws
 `UnsupportedError`. An empty stream is explicitly avoided because it would silently
 appear to succeed with no data, masking the unsupported platform.
 

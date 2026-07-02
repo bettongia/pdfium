@@ -1,195 +1,124 @@
 # betto_pdfium
 
-A pure Dart package wrapping the
+A monorepo for `betto_pdfium` — a pure Dart package wrapping the
 [PDFium](https://pdfium.googlesource.com/pdfium/) C++ library for PDF rendering,
-text extraction, and annotation support via Dart FFI.
+text extraction, search, annotations, and thumbnails via Dart FFI (native) and
+`dart:js_interop` (web) — plus its Flutter companion plugin for iOS.
 
-## Features
+No local C++ toolchain is required. Pre-built PDFium binaries are sourced from
+[bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) and
+downloaded automatically.
 
-- PDF metadata extraction (Info dictionary and XMP)
-- Full-text extraction with support for scanned PDFs, multi-column, and RTL
-  layouts
-- Full-text search with match coordinates for overlay highlights
-- Annotation extraction (sticky notes, highlights)
-- Page thumbnail generation
-- Table of contents (bookmark tree) extraction
+## Platform support
 
-## PDFium binary
+| Platform       | Status                  |
+| -------------- | ----------------------- |
+| macOS arm64    | Supported               |
+| Linux x86_64   | Supported               |
+| Linux arm64    | Supported               |
+| Windows x86_64 | Supported               |
+| iOS arm64      | Supported (xcframework) |
+| Android arm64  | Supported               |
+| Android x86_64 | Supported               |
+| Web (WASM)     | Supported (Web Worker)  |
 
-Pre-built PDFium binaries are published as GitHub Releases from the
-`pdfium-build` orphan branch. No local C++ toolchain is required.
+## Packages
 
-### Package consumers
-
-When you add `betto_pdfium` to your project, the native-assets hook
-(`hook/build.dart`) downloads the correct platform binary automatically the
-first time you run `dart build`, `dart run`, or `dart test`. No manual setup
-is required.
-
-### Library developers
-
-Working on `betto_pdfium` itself (e.g. to regenerate FFI bindings after a
-PDFium header change) requires the developer toolchain:
-
-#### Prerequisites
-
-- [`gh`](https://cli.github.com/) (GitHub CLI) — installed and authenticated.
-
-#### Fetch binary and headers
-
-```bash
-make fetch_pdfium
+```
+packages/
+  betto_pdfium/       # Pure Dart PDFium wrapper — the main package
+  betto_pdfium_ios/   # Flutter iOS companion plugin (delivers the PDFium
+                       # xcframework via Swift Package Manager)
 ```
 
-Downloads the platform binary and public headers matching `PDFIUM_VERSION`,
-verifies SHA256 checksums, and installs them into `third_party/pdfium_bin/` and
-`third_party/pdfium/` (both gitignored). The command is idempotent — it does
-nothing if the correct version is already installed.
+`betto_pdfium` has no dependency on `dart:ui` or `package:flutter` and works in
+CLI tools, server-side Dart, and Flutter apps alike. `betto_pdfium_ios` is only
+needed by Flutter apps targeting iOS.
 
-Note: `make test` works without this step — the native-assets hook downloads
-the binary into `.dart_tool/betto_pdfium/` automatically. `make fetch_pdfium`
-is only needed to regenerate FFI bindings (`make ffi_bindings`).
+See [`packages/betto_pdfium/README.md`](packages/betto_pdfium/README.md) for the
+full API guide (metadata, text/image/annotation extraction, rendering, search,
+table of contents, thumbnails), web (WASM) setup, and mobile setup.
 
-#### Verify
-
-```bash
-make check_pdfium_version
-```
-
-Confirms the installed binary and headers match `PDFIUM_VERSION`.
-
-### Bumping the PDFium version
-
-This is a two-commit workflow — the SHA-256 digests in `version_pdfium.json`
-are only known after CI has built and uploaded the binaries.
-
-**Commit 1 — trigger the build:**
-
-1. Update `PDFIUM_VERSION` with the new upstream commit SHA.
-2. Commit and push to `main` — CI rebuilds all platform binaries, packages the
-   public headers from the same commit, and publishes a new GitHub Release.
-
-**Wait for CI to finish.**
-
-**Commit 2 — update the hook manifest:**
-
-3. `make update_pdfium_manifest` — reads `checksums.sha256` from the
-   just-published release, rewrites `version_pdfium.json` and
-   `lib/src/pdfium_version.dart`.
-4. `make fetch_pdfium` to install the new binary and headers locally.
-5. If the public API changed: `make ffi_bindings` to regenerate
-   `lib/src/generated/pdfium_bindings.dart`.
-6. Commit `version_pdfium.json`, `lib/src/pdfium_version.dart`, and any
-   updated bindings.
-
-See [`docs/spec/01_binary_distribution.md`](docs/spec/01_binary_distribution.md)
-for the full distribution contract.
+The [`betto_pdf_widgets`](https://pub.dev/packages/betto_pdf_widgets) package
+provides Flutter widgets that use the `betto_pdfium package` for displaying PDF
+documents. The codebase includes a PDF viewer application as the example
+implementation.
 
 ## Getting started
 
+All commands are run from the **repo root** via the root `Makefile`, which
+composes per-package `.mk` fragments. This is a pure Dart package — never use
+`flutter` commands for `betto_pdfium` itself.
+
 ```bash
-dart test   # hook downloads the binary automatically; all tests should pass
+make test          # dart test — the native-assets hook downloads the
+                    # platform PDFium binary automatically on first run
+make analyze        # dart analyze (betto_pdfium) + flutter analyze (betto_pdfium_ios)
+make format          # dart format
+make coverage        # dart test --coverage + genhtml (site/coverage/)
+make web_test        # dart test -p chrome (requires Chrome)
+make pre_commit      # format_check + analyze + analyze_ios + license_check + test
 ```
 
-For library development (FFI binding regeneration, etc.):
-
-1. Run `make fetch_pdfium` to install the PDFium binary and headers.
-2. Run `make ffi_bindings` to regenerate FFI bindings if headers changed.
-3. Run `make test` to validate the smoke test passes.
-
-## Usage
-
-```dart
-import 'package:betto_pdfium/betto_pdfium.dart';
-```
-
-### Metadata extraction
-
-Load a PDF and read its Info dictionary metadata:
+Quick usage example:
 
 ```dart
 import 'dart:io';
 import 'package:betto_pdfium/betto_pdfium.dart';
 
 final bytes = await File('document.pdf').readAsBytes();
-
-try {
-  final doc = await PdfDocument.fromBytes(bytes);
-  try {
-    final meta = await doc.getMetadata();
-    print('Title: ${meta.title}');
-    print('Author: ${meta.author}');
-    print('Created: ${meta.creationDate?.value?.toIso8601String()}');
-
-    final info = await doc.getDocumentInfo();
-    print('PDF version: ${info.fileVersion}');
-  } finally {
-    await doc.close();
-  }
-} on PdfExtractionException catch (e) {
-  if (e.error == PdfError.passwordRequired) {
-    print('This PDF is password-protected.');
-  } else {
-    print('Could not open PDF: ${e.error}');
-  }
-}
-```
-
-### Text extraction
-
-Extract plain Unicode text from a PDF, page by page:
-
-```dart
-import 'dart:io';
-import 'package:betto_pdfium/betto_pdfium.dart';
-
-final bytes = await File('document.pdf').readAsBytes();
-
 final doc = await PdfDocument.fromBytes(bytes);
 try {
-  // Check whether the document has a usable text layer before extracting.
-  final extractable = await doc.isPlainTextExtractable();
-  if (!extractable) {
-    print('Document appears to be scanned — no text layer.');
-    return;
-  }
-
-  // Stream pages one at a time. Cancel the subscription at any point to stop.
-  await for (final page in doc.extractPlainText()) {
-    if (page.hasTextLayer) {
-      print('--- Page ${page.pageIndex} ---');
-      print(page.text);
-    } else {
-      print('Page ${page.pageIndex}: no text layer (image/scanned)');
-    }
-    if (page.hasUnicodeErrors) {
-      print('  (warning: some characters had no Unicode mapping)');
-    }
-  }
-
-  // Extract a single page by index:
-  final firstPage = await doc.extractPlainText(pageIndex: 0).first;
-  print('Page 0 has ${firstPage.text.length} characters.');
+  final meta = await doc.getMetadata();
+  print(meta.title);
 } finally {
   await doc.close();
 }
 ```
 
-### Developer CLI
+## Library development
+
+Working on `betto_pdfium` itself (regenerating FFI bindings, bumping the PDFium
+version, running mobile/web tests) requires a few extra `make` targets:
+
+```bash
+make fetch_pdfium              # Download PDFium binary + headers for the
+                                # current BBLANCHON_BUILD (only needed for
+                                # FFI binding regeneration — make test works
+                                # without it)
+make check_pdfium_version      # Verify installed binary/headers match BBLANCHON_BUILD
+make ffi_bindings               # Regenerate Dart FFI bindings from PDFium headers
+make fetch_wasm_assets          # Download PDFium WASM + JS + Worker assets for web
+make fetch_mobile_binaries       # Download Android .so (iOS xcframework is fetched by SPM)
+make ios_test                    # Run the mobile integration suite on iOS
+make android_test                # Run the mobile integration suite on Android
+```
+
+**Bumping the PDFium version** is a documented multi-step workflow — see
+[`packages/betto_pdfium/README.md`](packages/betto_pdfium/README.md) and
+`CLAUDE.md`'s "Bumping the bblanchon version" section for the full single-commit
+workflow, and
+[`docs/spec/01_binary_distribution.md`](docs/spec/01_binary_distribution.md) for
+the underlying distribution contract.
+
+## Developer CLI
 
 Inspect a real-world PDF file at the command line:
 
 ```bash
+cd packages/betto_pdfium
 dart run bin/pdfinfo.dart path/to/document.pdf
 ```
 
-Prints all Info dictionary fields, document version, and file identifiers.
-
-Full API documentation: run `dart doc` or see the `docs/spec/` directory.
+Prints all Info dictionary fields, document version, and file identifiers. See
+[`packages/betto_pdfium/example/`](packages/betto_pdfium/example/) for further
+usage examples.
 
 ## Additional information
 
+- Full package API guide:
+  [`packages/betto_pdfium/README.md`](packages/betto_pdfium/README.md)
 - Implementation plans: `docs/plans/`
 - Version roadmap: `docs/roadmap/`
 - Full specification: `docs/spec/`
-- Contributing: `CONTRIBUTING.md`
+- Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)

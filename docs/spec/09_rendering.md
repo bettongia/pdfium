@@ -2,17 +2,19 @@
 
 ## Overview
 
-The page rendering API allows a caller to rasterise a PDF page into a
-`dart:ui Image` for display in a Flutter widget tree. Rendering runs on the
-shared `PdfiumIsolate` so the UI thread is never blocked. The API is available
-on native platforms (iOS, Android, macOS, Windows, Linux) that can load the
-PDFium dylib. On web and stub platforms the method throws `UnsupportedError`.
+The page rendering API allows a caller to rasterise a PDF page into a raw BGRA
+pixel buffer. Rendering runs on the shared `PdfiumIsolate` so the caller's
+isolate is never blocked. The API is available on native platforms (iOS,
+Android, macOS, Windows, Linux) that can load the PDFium dylib, and on web via
+the PDFium WASM worker. On the stub platform the method throws
+`UnsupportedError`.
 
-The primary use case is the `PdfPageView` Flutter widget, which wraps the
-rendering API in a fit-to-width stateful widget suitable for inclusion in a
-document viewer. Direct use of `getPageSize()` and `renderPage()` is also
-supported for callers that need raw pixel buffers (e.g. thumbnail generation,
-print preview).
+`PdfDocument.renderPageToBytes()`, documented below, lives in the pure-Dart
+`package:betto_pdfium` and has no dependency on `dart:ui` or Flutter — it
+returns a `Uint8List` directly. The Flutter-facing layer — the `renderPage()`
+extension that converts that buffer into a `dart:ui Image`, plus the page
+viewer widgets — lives in the separate `package:betto_pdf_widgets` package.
+See [Flutter widgets](#flutter-widgets-betto_pdf_widgets) below.
 
 ## Public API
 
@@ -32,34 +34,12 @@ rendering resolution. `sizeForDpi(72)` returns a `Size` numerically equal to
 the point dimensions; `sizeForDpi(150)` returns the pixel dimensions needed
 for 150 DPI rendering.
 
-### `PdfRenderOptions`
-
-Options controlling how `PdfDocument.renderPage()` rasterises the page.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `renderAnnotations` | `bool` | `true` | When true, maps to the PDFium `FPDF_ANNOT` flag — annotations (highlights, ink, stamps, etc.) are drawn on top of the page content. |
-| `lcdText` | `bool` | `false` | When true, maps to `FPDF_LCD_TEXT` — sub-pixel text rendering. Produces sharper text on LCD screens but may cause colour fringing on non-LCD surfaces. |
-| `backgroundColor` | `Color` | `Color(0xFFFFFFFF)` | Opaque white. The bitmap is filled with this colour before rendering, eliminating garbage pixels on transparent areas. |
-
-The `backgroundColor` field uses `dart:ui Color` for Flutter interoperability;
-the rendering pipeline converts it to PDFium's `0xAARRGGBB` integer format
-internally.
-
-**Note on zoom and scale:** `PdfRenderOptions` intentionally has no `scale`
-field. The caller controls output resolution via the `pixelWidth` and
-`pixelHeight` arguments on `renderPage()`. Zoom/scale as a *widget-level*
-concern — including pinch-to-zoom, keyboard zoom, and accessibility scaling —
-is deferred to a future plan and must be treated as an accessibility
-requirement in that plan (keyboard zoom, `MediaQuery.disableAnimations`
-gating, pinch-to-zoom with `ScaleGestureDetector`).
-
 ### Rendering methods on `PdfDocument`
 
 | Method | Description |
 |--------|-------------|
 | `getPageSize(int pageIndex)` | `Future<PdfPageSize>` — returns the intrinsic size of the given page. |
-| `renderPage(int pageIndex, int pixelWidth, int pixelHeight, {PdfRenderOptions options})` | `Future<ui.Image>` — rasterises the page at the given pixel dimensions. |
+| `renderPageToBytes(int pageIndex, int pixelWidth, int pixelHeight, {bool renderAnnotations, bool lcdText, int backgroundColor})` | `Future<({Uint8List pixels, int pixelWidth, int pixelHeight})>` — rasterises the page at the given pixel dimensions and returns raw BGRA bytes. |
 
 #### `getPageSize(int pageIndex)`
 
@@ -69,36 +49,41 @@ Returns the intrinsic size of the page at `pageIndex` (0-based).
 - `RangeError` if `pageIndex` is outside `[0, pageCount)`. Use `RangeError.checkValidIndex` semantics.
 - `StateError` if `close()` has already been called.
 
-#### `renderPage(int pageIndex, int pixelWidth, int pixelHeight, {PdfRenderOptions options = const PdfRenderOptions()})`
+#### `renderPageToBytes(int pageIndex, int pixelWidth, int pixelHeight, {bool renderAnnotations = true, bool lcdText = false, int backgroundColor = 0xFFFFFFFF})`
 
-Rasterises the page at `pageIndex` into a `dart:ui Image` of exactly
+Rasterises the page at `pageIndex` into a raw BGRA pixel buffer of exactly
 `pixelWidth × pixelHeight` pixels. All PDFium calls run inside `PdfiumIsolate`;
 only the `Uint8List` pixel buffer crosses the isolate boundary.
 
+| Parameter | Default | Description |
+|-------|---------|-------------|
+| `renderAnnotations` | `true` | Maps to the PDFium `FPDF_ANNOT` flag — annotations (highlights, ink, stamps, etc.) are drawn on top of the page content. |
+| `lcdText` | `false` | Maps to `FPDF_LCD_TEXT` — sub-pixel text rendering. Produces sharper text on LCD screens but may cause colour fringing on non-LCD surfaces. |
+| `backgroundColor` | `0xFFFFFFFF` | Opaque white, packed ARGB. The bitmap is filled with this colour before rendering, eliminating garbage pixels on transparent areas. |
+
 **Rendering pipeline (inside PdfiumIsolate):**
 1. `FPDFBitmap_Create(pixelWidth, pixelHeight, hasAlpha=1)` — allocate a BGRA bitmap.
-2. `FPDFBitmap_FillRect(bitmap, 0, 0, w, h, color)` — fill with `backgroundColor` (converted to `0xAARRGGBB`).
+2. `FPDFBitmap_FillRect(bitmap, 0, 0, w, h, color)` — fill with `backgroundColor`.
 3. `FPDF_RenderPageBitmap(bitmap, page, 0, 0, w, h, 0, flags)` — rasterise. Flags are built from `renderAnnotations` and `lcdText`.
 4. `FPDFBitmap_GetBuffer(bitmap)` — obtain raw pointer; copy `w × h × 4` bytes into a `Uint8List` **before** `FPDFBitmap_Destroy`.
 5. `FPDFBitmap_Destroy(bitmap)` and `FPDF_ClosePage(page)` — release all native handles.
 
-On the Flutter side the `Uint8List` is converted to a `dart:ui Image` via
-`ImmutableBuffer.fromUint8List` → `ImageDescriptor.raw` →
-`instantiateCodec` → `codec.getNextFrame()`. The BGRA pixel format maps to
+`betto_pdfium` returns the raw `Uint8List` and does not depend on `dart:ui`.
+Flutter callers convert the buffer to a `dart:ui Image` themselves (e.g. via
+`decodeImageFromPixels`, or the `renderPage()` extension shipped by
+`package:betto_pdf_widgets` — see
+[Flutter widgets](#flutter-widgets-package-bettopdfwidgets) below), passing
 `PixelFormat.bgra8888`.
 
 **For sharp output on high-DPI displays,** multiply the widget's logical width
-by `MediaQuery.devicePixelRatio` before passing `pixelWidth` to `renderPage`.
-`PdfPageView` does this automatically.
+by `MediaQuery.devicePixelRatio` before passing `pixelWidth` to
+`renderPageToBytes`. `betto_pdf_widgets`' `PageView` and `PageViewer` do this
+automatically.
 
 **Throws:**
 - `RangeError` if `pageIndex` is outside `[0, pageCount)`.
 - `StateError` if `close()` has been called before or during the render. When `close()` is called while a render future is in flight, the future completes with `StateError` — consistent with the Dart convention for post-disposal access.
 - `PdfiumException` if a PDFium native call fails unexpectedly (e.g. `FPDFBitmap_Create` returns null due to an out-of-memory condition).
-
-The returned `ui.Image` is owned by the caller and must be disposed by calling
-`ui.Image.dispose()` when no longer needed. `PdfPageView` disposes images
-automatically.
 
 ### `getThumbnail(int pageIndex, {bool generateIfAbsent, int maxDimension})`
 
@@ -162,7 +147,7 @@ Errors from the fallback `renderPageToBytes` call (`StateError`,
 | Platform | Supported | Notes |
 |----------|-----------|-------|
 | macOS, iOS, Android, Windows, Linux | Yes | Via dart:ffi + PdfiumIsolate. |
-| Web | No | Throws `UnsupportedError`. Both the embedded path (FFI) and fallback path are unavailable. |
+| Web | Yes | Via the PDFium WASM worker. |
 | Stub | No | Throws `UnsupportedError`. |
 
 ### `PdfiumException`
@@ -177,16 +162,72 @@ A general-purpose exception for unexpected PDFium native failures.
 allocation failure). Logical errors (out-of-range index, closed document) use
 standard Dart exception types (`RangeError`, `StateError`).
 
-### `PdfPageView`
+## Flutter widgets (`betto_pdf_widgets`)
+
+The Flutter-facing rendering layer — the `ui.Image` conversion and the page
+viewer widgets — lives in the separate `package:betto_pdf_widgets` package,
+not in `package:betto_pdfium`. `betto_pdf_widgets` depends on `betto_pdfium`
+and adds a `dart:ui` / Flutter dependency that the pure-Dart package
+deliberately avoids.
+
+In addition to the rendering pieces documented below, `betto_pdf_widgets`
+ships companion widgets for the other `betto_pdfium` extraction APIs —
+`SearchView`, `ThumbnailGrid`, `AnnotationView`, `TocView`, and `InfoView` —
+which are out of scope for this spec.
+
+### `RenderOptions`
+
+Options controlling how the `renderPage()` extension (below) rasterises the
+page. Defined in `package:betto_pdf_widgets`; wraps the plain named
+parameters accepted by `PdfDocument.renderPageToBytes()`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `renderAnnotations` | `bool` | `true` | When true, maps to the PDFium `FPDF_ANNOT` flag — annotations (highlights, ink, stamps, etc.) are drawn on top of the page content. |
+| `lcdText` | `bool` | `false` | When true, maps to `FPDF_LCD_TEXT` — sub-pixel text rendering. Produces sharper text on LCD screens but may cause colour fringing on non-LCD surfaces. |
+| `backgroundColor` | `Color` | `Color(0xFFFFFFFF)` | Opaque white. The bitmap is filled with this colour before rendering, eliminating garbage pixels on transparent areas. |
+
+The `backgroundColor` field uses `dart:ui Color` for Flutter interoperability;
+`renderPage()` converts it to PDFium's `0xAARRGGBB` integer format before
+calling `renderPageToBytes()`.
+
+**Note on zoom and scale:** `RenderOptions` intentionally has no `scale`
+field. The caller controls output resolution via the `pixelWidth` and
+`pixelHeight` arguments on `renderPage()`. Zoom/scale is a *widget-level*
+concern handled by `ViewerController` and `PageViewer` (below).
+
+### `renderPage()` extension
+
+`package:betto_pdf_widgets` adds a `renderPage()` extension method to
+`PdfDocument` that wraps `renderPageToBytes()` and decodes the result into a
+`dart:ui Image`:
+
+```dart
+Future<ui.Image> renderPage(
+  int pageIndex,
+  int pixelWidth,
+  int pixelHeight, {
+  RenderOptions options = const RenderOptions(),
+})
+```
+
+It converts the `Uint8List` via `ImmutableBuffer.fromUint8List` →
+`ImageDescriptor.raw` → `instantiateCodec` → `codec.getNextFrame()`, using
+`PixelFormat.bgra8888`. The returned `ui.Image` is owned by the caller and
+must be disposed via `ui.Image.dispose()` when no longer needed. It throws
+the same `RangeError` / `StateError` / `PdfiumException` as
+`renderPageToBytes()`.
+
+### `PageView`
 
 A stateful Flutter widget that renders a single page of a `PdfDocument`
 fit-to-width.
 
 ```dart
-PdfPageView(
+PageView(
   document: doc,
   pageIndex: 0,
-  options: PdfRenderOptions(renderAnnotations: false),
+  options: RenderOptions(renderAnnotations: false),
   semanticLabel: 'Research paper – page 1',
 )
 ```
@@ -195,7 +236,7 @@ PdfPageView(
 |----------|------|----------|-------------|
 | `document` | `PdfDocument` | yes | The document to render. |
 | `pageIndex` | `int` | yes | The zero-based page index to display. |
-| `options` | `PdfRenderOptions` | no | Render options. Defaults to `PdfRenderOptions()`. |
+| `options` | `RenderOptions` | no | Render options. Defaults to `RenderOptions()`. |
 | `semanticLabel` | `String?` | no | Accessibility label for the rendered canvas (e.g. the document title). Falls back to `"PDF page N"`. |
 
 **Layout:** Uses `LayoutBuilder` to obtain the available logical width. The
@@ -227,15 +268,15 @@ for best screen-reader experience.
 
 **Resource management:** Each `ui.Image` is disposed when replaced by a new
 render or when the widget is disposed. The `PdfDocument` is owned by the
-caller; `PdfPageView` never calls `close()` on it.
+caller; `PageView` never calls `close()` on it.
 
-### `PdfViewerController`
+### `ViewerController`
 
 A `ChangeNotifier` that holds all view-level state for a single open PDF: the
 current page, zoom mode, annotation toggle, and active search matches.
 
 ```dart
-final controller = PdfViewerController();
+final controller = ViewerController();
 
 // Navigate to a page:
 controller.setPage(2, pageCount: doc.pageCount);
@@ -249,7 +290,7 @@ controller.setZoom(ZoomMode.custom, factor: controller.effectiveZoomFactor + 0.1
 // Toggle annotations:
 controller.renderAnnotations = !controller.renderAnnotations;
 
-// Apply search results from PdfSearchView:
+// Apply search results from SearchView:
 controller.setSearchMatches(matches);
 controller.clearSearch();
 
@@ -262,29 +303,29 @@ controller.dispose();
 | `currentPage` | `int` | Zero-based index of the currently displayed page. Read-only; set via `setPage`. |
 | `zoomMode` | `ZoomMode` | Current zoom mode: `fitPage`, `fitWidth`, or `custom`. |
 | `zoomFactor` | `double` | Scale factor used when `zoomMode == ZoomMode.custom`. Relative to the available viewport width. |
-| `effectiveZoomFactor` | `double` | The actual rendered scale as a fraction of viewport width, updated by `PdfPageViewer` after each render. Use this as the base when stepping zoom. |
+| `effectiveZoomFactor` | `double` | The actual rendered scale as a fraction of viewport width, updated by `PageViewer` after each render. Use this as the base when stepping zoom. |
 | `renderAnnotations` | `bool` | Whether annotations are drawn on the page. Maps to `FPDF_ANNOT`. Default `true`. |
-| `activeSearchMatches` | `List<PdfSearchMatch>` | Matches currently displayed as overlays by `PdfPageViewer`. |
-| `searchQuery` | `String` | Last query typed in `PdfSearchView`; persists across tab switches. |
+| `activeSearchMatches` | `List<PdfSearchMatch>` | Matches currently displayed as overlays by `PageViewer`. |
+| `searchQuery` | `String` | Last query typed in `SearchView`; persists across tab switches. |
 | `searchCompleted` | `bool` | Whether the last search stream completed. |
-| `searchPageTexts` | `Map<int, String>` | Per-page extracted text cache populated by `PdfSearchView`. |
+| `searchPageTexts` | `Map<int, String>` | Per-page extracted text cache populated by `SearchView`. |
 | `setPage(int, {int pageCount})` | `void` | Clamps to `[0, pageCount − 1]` and notifies. No-op when `pageCount ≤ 0`. |
 | `nextPage({int pageCount})` | `void` | Advances one page; no-op at last page. |
 | `previousPage()` | `void` | Moves back one page; no-op at page 0. |
 | `setZoom(ZoomMode, {double factor})` | `void` | Sets mode and optional custom factor; notifies. |
-| `setSearchMatches(List<PdfSearchMatch>)` | `void` | Replaces active matches; notifies so `PdfPageViewer` repaints overlays. |
+| `setSearchMatches(List<PdfSearchMatch>)` | `void` | Replaces active matches; notifies so `PageViewer` repaints overlays. |
 | `clearSearch()` | `void` | Clears matches and resets all search persistence fields; notifies. |
 
 **Ownership:** One controller per open document. The controller does not own the
 `PdfDocument` handle; that is owned by the caller.
 
-### `PdfPageViewer`
+### `PageViewer`
 
 A stateful Flutter widget that renders a single PDF page with support for three
 zoom modes and search-match overlays.
 
 ```dart
-PdfPageViewer(
+PageViewer(
   document: doc,
   pageCount: pageCount,
   controller: controller,
@@ -296,7 +337,7 @@ PdfPageViewer(
 |---|---|---|---|
 | `document` | `PdfDocument` | yes | The document to render. |
 | `pageCount` | `int` | yes | Total pages; used to validate page indices. |
-| `controller` | `PdfViewerController` | yes | Drives zoom, page, annotations, and search overlays. |
+| `controller` | `ViewerController` | yes | Drives zoom, page, annotations, and search overlays. |
 | `semanticLabel` | `String?` | no | Accessibility label for the page canvas. |
 
 **Zoom modes:**
@@ -307,12 +348,12 @@ PdfPageViewer(
 | `fitWidth` | Full available width | Vertical via `SingleChildScrollView` |
 | `custom` | `availableWidth × controller.zoomFactor` | Pan via `InteractiveViewer` |
 
-After each successful render, `PdfPageViewer` writes
+After each successful render, `PageViewer` writes
 `renderLogicalWidth / logicalWidth` into `controller.effectiveZoomFactor` so the
 toolbar zoom buttons can step from the actual visual scale.
 
 **Search overlays:** For each `PdfSearchMatch` on the current page,
-`PdfPageViewer` draws a translucent amber rectangle (50 % opacity) over the
+`PageViewer` draws a translucent amber rectangle (50 % opacity) over the
 match's bounding box. Coordinates are converted from PDF user space (bottom-left
 origin) to Flutter screen space (top-left origin):
 
@@ -326,7 +367,7 @@ rectH    = (pdfRect.top − pdfRect.bottom) / pageHeightPt * widgetHeight
 **In-flight cancellation:** A generation counter discards stale results when the
 page, zoom, or document changes during an async render.
 
-**Resource management:** `PdfPageViewer` disposes each `ui.Image` when it is
+**Resource management:** `PageViewer` disposes each `ui.Image` when it is
 replaced or when the widget is disposed. It never calls `close()` on the
 document.
 
@@ -335,7 +376,7 @@ document.
 | Platform | Rendering | Notes |
 |----------|-----------|-------|
 | macOS, iOS, Android, Windows, Linux | Supported | Via dart:ffi + PDFium dylib. |
-| Web | Unsupported | Throws `UnsupportedError`. Web rendering is deferred to a future plan. |
+| Web | Supported | Via the PDFium WASM worker. |
 | Stub | Unsupported | Throws `UnsupportedError`. |
 
 ## Coordinate system
@@ -350,5 +391,5 @@ zoom/selection plan.
 
 Each rendered page allocates `pixelWidth × pixelHeight × 4` bytes. A typical
 A4 page at 150 DPI on a retina display (≈ 1440 × 1800 px) uses ~10 MB.
-`PdfPageView` holds exactly one `ui.Image` per instance; with N open tabs
+`PageView` holds exactly one `ui.Image` per instance; with N open tabs
 there are N live images. No LRU cache is used in this phase.

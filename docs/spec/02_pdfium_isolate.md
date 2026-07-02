@@ -252,10 +252,13 @@ valid pointer in the caller's address space.
    exception path.
 
 5. **Stub and web** — add the method to `_document_stub.dart` and
-   `_document_web.dart`. Both must throw `UnsupportedError` — not
-   `UnimplementedError` — to signal that the platform does not support the
-   operation, consistent with all other unsupported-platform methods in this
-   codebase.
+   `_document_web.dart`. `_document_stub.dart` must throw `UnsupportedError` —
+   not `UnimplementedError` — to signal that the fallback platform does not
+   support the operation, consistent with all other unsupported-platform
+   methods in this codebase. `_document_web.dart` should implement the
+   operation via a `WorkerOp` round-trip to the PDFium WASM worker rather than
+   throwing, unless the underlying PDFium WASM build genuinely cannot support
+   it.
 
 ## Memory management inside the isolate
 

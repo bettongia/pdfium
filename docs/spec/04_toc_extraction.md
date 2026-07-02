@@ -32,8 +32,9 @@ well-formed open document.
 
 Throws `StateError` if called after `PdfDocument.close()`.
 
-**Platform support:** Native (dart:ffi) only. On web and the fallback stub
-platform, `tableOfContents` throws `UnsupportedError` immediately.
+**Platform support:** Native (dart:ffi) and web (PDFium WASM via the worker).
+On the fallback stub platform, `tableOfContents` throws `UnsupportedError`
+immediately.
 
 ### `PdfTocEntry`
 
@@ -116,14 +117,14 @@ bookmark trees (hundreds to low thousands of entries at most).
 | `FPDFDest_GetLocationInPage` returns FALSE | `scrollPosition == null`. The entry is still included. |
 | Cycle in bookmark tree | Recursion stops at the repeated handle. The cyclic entry is silently omitted. |
 | `tableOfContents` after `close()` | Throws `StateError`. |
-| Web / stub platform | Throws `UnsupportedError`. |
+| Stub platform | Throws `UnsupportedError`. |
 
 ## Platform notes
 
 On native platforms all PDFium calls run on the `PdfiumIsolate` — the
 process-wide singleton that serialises all FFI calls. The caller's isolate is
-never blocked. On web, `tableOfContents` throws `UnsupportedError` until the
-PDFium WASM build is available.
+never blocked. On web, `tableOfContents` runs inside the dedicated Web Worker
+hosting the PDFium WASM build.
 
 ## `bin/pdfinfo.dart` CLI
 

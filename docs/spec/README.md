@@ -55,10 +55,12 @@ detection for malformed PDFs, and the deliberate omission of zoom values from
 
 ### [Page Rendering](rendering.md)
 
-API for rasterising a PDF page into a `dart:ui Image` via `renderPage()`, plus
-the `PdfPageView` Flutter widget that wraps it. Covers `PdfRenderOptions`, the
-BGRA rendering pipeline inside the isolate, high-DPI scaling, caching behaviour,
-and in-flight cancellation.
+API for rasterising a PDF page into raw BGRA bytes via `renderPageToBytes()`,
+plus the `package:betto_pdf_widgets` Flutter layer — the `renderPage()`
+extension that decodes to a `dart:ui Image`, and the `PageView` / `PageViewer`
+widgets that wrap it. Covers `RenderOptions`, the BGRA rendering pipeline
+inside the isolate, high-DPI scaling, caching behaviour, and in-flight
+cancellation.
 
 ### [Testing](10_testing.md)
 

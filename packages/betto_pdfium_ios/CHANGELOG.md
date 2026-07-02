@@ -2,7 +2,7 @@
 
 ## 0.1.0-dev.3
 
-In progress
+Version bump — no API changes.
 
 ## 0.1.0-dev.2
 

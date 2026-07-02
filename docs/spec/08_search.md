@@ -105,7 +105,7 @@ The `search()` stream follows the same lifecycle as `extractPlainText()`:
 | Platform | Status |
 |----------|--------|
 | iOS, Android, macOS, Windows, Linux | Fully supported via `dart:ffi` + `PdfiumIsolate`. |
-| Web | Throws `UnsupportedError` (PDFium WASM implementation pending). |
+| Web | Fully supported via the PDFium WASM worker. |
 | Stub (other) | Throws `UnsupportedError`. |
 
 ## Implementation notes

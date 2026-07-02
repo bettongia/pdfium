@@ -6,9 +6,8 @@ The image extraction API allows a caller to enumerate every raster image object
 embedded in a PDF document, inspect each image's metadata (dimensions, DPI,
 colourspace, compression filters), and retrieve its rendered BGRA pixel data.
 Extraction is available on all native platforms (iOS, Android, macOS, Windows,
-Linux) via PDFium FFI. On web the API throws `UnsupportedError` — consistent
-with the rest of the library — because PDFium WASM support for image rendering
-is not yet available.
+Linux) via PDFium FFI, and on web via the PDFium WASM build running in a
+dedicated Web Worker.
 
 The primary use cases are:
 
@@ -129,7 +128,7 @@ Immutable container for the image objects on a single page.
 | `FPDFPageObj_GetBounds` returns false | `bounds` is set to a zero `PdfRect`; image is still included in the output. |
 | Multi-page document | `extractImages()` yields one `PdfPageImages` per page in ascending order. |
 | `close()` during active stream | Stream terminates cleanly; all page-level native handles are released. |
-| Web platform | Both `extractImages` and `renderImage` throw `UnsupportedError`. |
+| Web platform | Both `extractImages` and `renderImage` are supported via the WASM worker. |
 | Stub/unsupported platform | Both methods throw `UnsupportedError`. |
 | Password-protected PDF | `PdfDocument.fromBytes` throws `PdfExtractionException(PdfError.passwordRequired)` before image extraction is attempted. |
 | Corrupt / non-PDF bytes | `PdfDocument.fromBytes` throws `PdfExtractionException(PdfError.invalidDocument)`. |
@@ -161,9 +160,9 @@ on the `PdfiumIsolate` — a process-wide singleton isolate that owns the PDFium
 library handle and serialises all FFI calls. The caller's isolate (typically the
 UI isolate) is never blocked.
 
-On web, both `extractImages` and `renderImage` throw `UnsupportedError`. Web
-support requires PDFium compiled to WebAssembly with `fpdf_edit.h` exports, and
-is deferred to a future release.
+On web, `extractImages` and `renderImage` run inside a dedicated Web Worker
+hosting the PDFium WASM build; results are marshalled back to the caller's
+isolate via `postMessage`, mirroring the native isolate round-trip semantics.
 
 ## Coordinate system
 
