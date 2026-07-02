@@ -23,3 +23,5 @@ logs/
 # side-files are not — see `make build_wasm_worker`).
 packages/betto_pdfium/lib/assets/pdfium_worker.js.map
 packages/betto_pdfium/lib/assets/pdfium_worker.js.deps
+
+.DS_Store

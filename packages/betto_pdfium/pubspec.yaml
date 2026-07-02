@@ -15,6 +15,7 @@ topics:
 platforms:
   macos:
   linux:
+  windows:
   android:
   ios:
   web:
