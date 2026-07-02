@@ -594,10 +594,13 @@ this needs an explicit decision.
   Phase-end commits should include the updated plan file alongside the code
   changes for that phase.
 - **Despite being organised into phases, this entire plan is delivered as a
-  single pull request** at the end of Phase 8 — not one PR per phase. This is
-  a deliberate deviation from the incremental-PR structure
-  `plan_wasm_support.md` used for its own Phase 2; that precedent does not
-  apply here.
+  single pull request**, not one PR per phase. This is a deliberate deviation
+  from the incremental-PR structure `plan_wasm_support.md` used for its own
+  Phase 2; that precedent does not apply here. Phase 8 already opened PR #2
+  covering Phases 1–8; **Phase 9 (added after an independent `release-ninja`
+  review of that PR) pushes additional commits to the same branch and the
+  same open PR** rather than opening a new one — the "single PR" rule means
+  one PR for the whole plan, not one PR per finalisation pass.
 - Every phase that touches Dart source must leave `make pre_commit` (native
   suite) passing before moving to the next phase. Phases that touch the web
   backend must additionally leave `make web_test` passing. `make
@@ -864,6 +867,219 @@ Phase 6 scaffolding forward rather than working around it here.
 
 Implementation must not begin before this plan reaches `Investigated` status,
 and even then, not without an explicit go-ahead._
+
+### Phase 9 — Release-readiness remediation (Review 3 findings)
+
+PR #2 (Phases 1–8) was audited by an independent `release-ninja` review
+before merge — see **Review 3** below for the full assessment. The
+architecture, memory-safety model, and RPC ordering were confirmed sound, but
+one blocking gap and several risks must be closed before this can drop the
+"(beta)" qualifier and be treated as release-ready. This phase remediates
+those findings, in the reviewer's priority order.
+
+- [x] **(Blocker) Add worker failure handling and a request timeout to the
+  RPC client.** `_document_web.dart`'s `_getWorker()` currently registers
+  only `worker.onmessage` — there is no `worker.onerror`/`onmessageerror`
+  handler and no timeout on `_send`'s completer. If `pdfium_worker.js` fails
+  to load (wrong path, missing asset, bad `base href` — a plausible
+  real-world deployment mistake) or the worker throws before responding,
+  every pending and future request hangs forever with no exception and no
+  diagnostic. Add:
+  - A `worker.onerror`/`onmessageerror` listener that fails **all**
+    currently-pending `_pending` completers with a descriptive
+    `PdfiumException` (e.g. "PDFium worker failed to load — verify
+    `pdfium_worker.js` is deployed alongside `pdfium.wasm`/`pdfium.js`").
+  - A per-request timeout (or at minimum a bounded worker-liveness check at
+    startup) that removes the completer from `_pending` and completes it
+    with an error instead of leaking it indefinitely.
+
+  _Done: `_document_web.dart` now registers `worker.onerror` and
+  `worker.onmessageerror` in `_getWorker()`, both routed through a new
+  `_failAllPending(reason)` helper that completes every currently-pending
+  `_pending` completer with a `PdfiumException` and clears the map. `_send`
+  now wraps `completer.future` in `.timeout(_requestTimeout, onTimeout:
+  ...)` (`_requestTimeout` = 45s, chosen to stay comfortably above the
+  worker's own internal 30s WASM-module-load timeout in
+  `_pdfium_worker_entry.dart`, since a cold worker's first request
+  implicitly waits on that); a timed-out request removes itself from
+  `_pending` and throws a descriptive `PdfiumException` naming the failed op.
+  `make pre_commit` (604 tests), `make web_test` (393 tests), and `make
+  web_coverage` (92.7%, gate still passes) all green — see commit for exact
+  diff. The new failure/timeout branches are `// coverage:ignore`d, matching
+  the file's existing convention for the Finalizer callback (deliberately
+  triggering a real broken-worker `error` event or a starved response from
+  `dart test -p chrome` needs test-only plumbing to swap the worker URL or
+  fake a non-responding worker) — **dedicated regression tests for these
+  paths remain open**, tracked under the "Confirm `_pending` cannot leak
+  independently" checkbox below, not considered part of this item._
+- [x] **(High risk) Perform the deferred main-thread-blocking verification,
+  or reinstate the "(beta)" qualifier until it exists.** Phase 6 shipped
+  without the manual `flutter run -d chrome` + DevTools Performance-panel
+  confirmation (no `chromedriver`/GUI session available in that automated
+  run), and Phase 7 dropped "(beta)" from `README.md` anyway. Either:
+  1. Perform that manual confirmation now (large-document render via
+     `integration_test_app`'s `flutter run -d chrome`, capture the
+     Performance panel, confirm the main thread stays unblocked), and record
+     the result in this plan; or
+  2. Revert the "(beta)" removal in `README.md` until (1) is done.
+
+  Do not leave the qualifier dropped without the evidence behind it.
+
+  **This item requires a human with a local GUI/browser session — it is
+  deliberately reserved for the user to pick up when ready, not for an
+  automated implementation pass.**
+
+  _Harness added:_ `integration_test_app/lib/main.dart` (previously a bare
+  placeholder — see Investigation) now has an actual UI for this: a "Load &
+  render large PDF" button that loads the bundled
+  `assets/data/arxiv/2404.16130v2.pdf` (~6.6 MB, multi-page real-world arXiv
+  paper), extracts all text, and renders every page at 150 DPI, timing the
+  whole operation. A continuously-spinning `RotationTransition` icon (driven
+  by the Flutter engine's own frame scheduler, independent of the render
+  call) is shown above the button — if it stutters or freezes while the
+  operation runs, the main thread is blocked; if it keeps turning smoothly,
+  that's a first, low-tech confirmation before even opening DevTools. Any
+  failure (including the Phase 9 blocker's `PdfiumException` paths, if
+  triggered) is caught and shown on-screen via `SelectableText` rather than
+  crashing silently.
+
+  Steps to perform it:
+  1. `cd packages/betto_pdfium/integration_test_app && flutter run -d
+     chrome` — this is the real `flutter build web`-backed scaffold Phase 6
+     added, serving `pdfium.wasm`/`pdfium.js`/`pdfium_worker.js` for real
+     (not the `dart test -p chrome` harness). (Verified: `flutter build web`
+     succeeds and correctly bundles `pdfium.wasm`/`pdfium.js`/
+     `pdfium_worker.js` under `build/web/assets/pdfium/` and the arXiv PDF
+     under `build/web/assets/assets/data/arxiv/`.)
+  2. Press the "Load & render large PDF" button.
+  3. Open Chrome DevTools → Performance tab, start recording, press the
+     button again (or before pressing, if you want the whole run captured),
+     stop recording once the on-screen status reads "Done".
+  4. Confirm: no long main-thread "Task" block spans the operation, the
+     spinner icon keeps turning smoothly throughout, and the heavy work
+     instead appears on a separate `Worker` thread track.
+  5. While there, also check the Network/console tabs for any
+     COOP/COEP-related errors or blocked requests — empirically confirms the
+     Q5 non-requirement (see Investigation) in a real build context, not
+     just the `dart test` harness.
+  6. Report the outcome (pass/fail, roughly what was observed) back into
+     this plan (update this checkbox and add a short result note), and
+     decide from that whether the "(beta)" qualifier can stay dropped in
+     `README.md` or needs reinstating.
+
+  _Result: PASS, performed manually by the user on 2026-07-02 against a real
+  `flutter run -d chrome` session (`integration_test_app`) in Chrome._
+  - App-reported timing: "Done in 658 ms — 26 pages rendered at 150 DPI,
+    90713 characters extracted" against `assets/data/arxiv/2404.16130v2.pdf`
+    (~6.6 MB). The spinner icon stayed smooth throughout — no visible
+    stutter for an operation of that duration, which would be very unlikely
+    if it were running synchronously on the main thread.
+  - DevTools Performance panel: the classic flame-chart recording showed
+    only a "Main — http://localhost:.../" track; no separate Worker track
+    was visible in two separate recordings. This was not able to be fully
+    explained (possibly a display quirk of this Chrome version/build for
+    short-lived worker activity) and is noted here rather than silently
+    dropped, but it did **not** block the result below given the next two
+    checks.
+  - Network tab: `pdfium_worker.js` (200), `pdfium.js` (200, loaded via
+    `importScripts` with initiator `pdfium_worker.js:3157` — independently
+    proving the full ~157 KB compiled worker script loaded and executed,
+    not a stub), `pdfium.wasm` (200), and the PDF fixture (200/304). No
+    errors of any kind.
+  - **Definitive confirmation**: DevTools → Application → Frames → "Web
+    Workers" lists `http://localhost:.../assets/pdfium/pdfium_worker.js` as
+    a live context with **Type: Web Worker** — i.e. Chrome itself reports
+    the PDFium code is running in a genuine, separate Worker execution
+    context, independent of whether the flame chart visualized it as its
+    own track. This is the strongest and most direct confirmation
+    available, and resolves the flame-chart ambiguity above.
+  - Same panel also reports **Cross-Origin-Embedder-Policy: None** for the
+    worker document — empirically confirms the Q5 non-requirement (no
+    COOP/COEP headers needed) in a real `flutter run -d chrome` build
+    context, not just the `dart test -p chrome` harness.
+  - **Second, larger confirmation run**, using an ad-hoc local 705-page PDF
+    (~10.3 MB, not a repo fixture — loaded temporarily via the same
+    harness's second button, then removed): "Done in 10494 ms — 705 pages
+    rendered at 150 DPI, 1799241 characters extracted", with **no stutter in
+    the spinner** across the full 10.5-second operation. A genuine
+    main-thread block of that length would have been an unmissable,
+    multi-second UI freeze — this is the strongest evidence gathered.
+
+  **Decision: the "(beta)" qualifier stays dropped in `README.md`.** The
+  main-thread-blocking claim now has real evidence behind it, not just
+  automated-test coverage.
+- [x] **(High risk) Add a CI gate that fails if the checked-in
+  `lib/assets/pdfium_worker.js` drifts from its Dart source.** Nothing in
+  `.github/workflows/cicd.yml` currently rebuilds or diff-checks the
+  committed worker artifact — a future fix to `_pdfium_wasm_engine.dart`
+  could pass `pdfium_wasm_engine_test.dart` and all of CI while the shipped
+  `pdfium_worker.js` silently still contains the old logic, because nobody
+  re-ran `make build_wasm_worker`. Add a CI step (in the web job) that runs
+  `make build_wasm_worker` and fails on a dirty `git diff --exit-code
+  packages/betto_pdfium/lib/assets/pdfium_worker.js`.
+
+  _Done: added a new `verify-wasm-worker` job to `.github/workflows/cicd.yml`
+  (parallel to `test`/`test-web`, `needs: build`) that runs `dart pub get`,
+  `make build_wasm_worker`, then fails with a clear `::error::` annotation if
+  `git diff --exit-code -- packages/betto_pdfium/lib/assets/pdfium_worker.js`
+  reports a diff. Verified locally: `make build_wasm_worker` on the current
+  branch regenerates a byte-identical `pdfium_worker.js` (`git diff --exit-code`
+  on it exits 0), confirming the gate passes cleanly as-is and would only
+  fire on genuine drift. YAML syntax validated with `python3 -c "import
+  yaml; yaml.safe_load(...)"`._
+- [x] **(Medium — leak) Remove `_tokenQueues[token]` on `close()`.**
+  `_document_web.dart`'s `_tokenQueues` map is populated per opened document
+  and never cleaned up, even after `close()` — in a long-lived page that
+  opens many documents over its lifetime this grows unboundedly. Remove the
+  entry once the close request for that token completes.
+
+  _Done: `close()` now calls `_tokenQueues.remove(_token)` immediately after
+  its own queued close request completes. Safe because every public method
+  checks `_checkNotClosed()` and `close()` sets `_closed = true`
+  synchronously before its first `await`, so nothing can enqueue further
+  work for that token via `_sendForToken` afterwards — the Finalizer's
+  fire-and-forget close path bypasses `_tokenQueues` entirely (documented on
+  the Finalizer itself), so it can't race this either. Doc comment on
+  `_tokenQueues` updated to describe the cleanup._
+- [x] **(Medium — leak) Confirm `_pending` cannot leak independently of the
+  blocker fix above.** The timeout/`onerror` handling in the first item
+  should already prevent orphaned `_pending` entries; add a regression test
+  that simulates a lost/never-arriving response (e.g. a fake worker that
+  never replies) and asserts the completer still resolves (with an error)
+  rather than hanging, and that the entry is removed from `_pending`
+  afterwards.
+
+  _Done: a real broken-Worker `error`/`messageerror` event can't be
+  triggered deterministically from `dart test -p chrome` without swapping
+  the hardcoded worker URL (same constraint noted in item 1), so this adds
+  three `@visibleForTesting` hooks to `_document_web.dart`
+  (`debugRegisterPendingRequest`, `debugHasPending`, `debugFailAllPending`)
+  that let a test register a fake in-flight request and directly invoke the
+  same `_failAllPending` logic the real event handlers delegate to — testing
+  the actual leak-prevention code path without needing real Worker failure
+  timing. New file `test/pdfium_worker_rpc_failure_test.dart` (3 tests):
+  confirms a simulated failure (a) rejects the pending future with a
+  `PdfiumException` instead of hanging, (b) removes the entry from
+  `_pending`, and (c) does so for every pending request, not just the
+  first. Added to `WEB_TEST_FILES` in `betto_pdfium.mk`. `_failAllPending`
+  itself is no longer inside the `// coverage:ignore` block (only the two
+  thin DOM-event handlers `_onWorkerError`/`_onWorkerMessageError` still
+  are) — it's now genuinely covered by these tests rather than ignored._
+- [x] Run `make pre_commit` and `make web_test`/`make web_coverage`; all must
+  pass, and the ≥ 90% web coverage gate must still hold (the new error-path
+  tests should raise coverage, not just preserve it, since the previously
+  untested branches were exactly the missing error handling).
+
+  _Done: `make pre_commit` passes (604 tests, exit code 0). `make web_test`
+  passes (396 tests, +3 for the new regression file). `make web_coverage`:
+  **92.7%** (1420/1531 lines) — gate holds comfortably above 90%._
+- [x] Update this plan's **Status** back to `Complete`, extend the
+  **Summary** section below with what Phase 9 changed, and move this file
+  back to `docs/plans/completed/`.
+- [x] Commit: `fix(wasm-worker): add worker failure handling and close
+  release-readiness gaps from review`.
+- [x] Push to the existing branch — the additional commit(s) land on the
+  already-open PR #2, no new PR is opened.
 
 ## Reviews
 
@@ -1284,6 +1500,88 @@ already settled.
       transferable-buffer detach handling. _Resolved: both are explicit Phase 3
       checkboxes._
 
+### Review 3: 2026-07-02
+
+Independent `release-ninja` audit of PR #2 (Phases 1–8), performed after the
+plan was first marked `Complete` and before merge. Scope: memory safety
+across the worker boundary, transferable-buffer handling, RPC
+correlation/ordering, coverage-gate honesty, native/cross-platform regression
+risk, and CI coverage of the new build artifact.
+
+**Verdict: Conditionally ready.** The core architecture is sound and the
+native/isolate code paths are unaffected, but the PR must not be treated as
+release-ready — or keep the "(beta)" qualifier dropped — until the blocker
+below is fixed.
+
+**🔴 Blocker — no worker error handling; failures hang forever.**
+`_document_web.dart`'s `_getWorker()` registers only `worker.onmessage`; there
+is no `worker.onerror`/`onmessageerror` handler and no timeout on the `_send`
+completer. If `pdfium_worker.js` fails to load (wrong deployment path, missing
+asset — a realistic consumer mistake) or the worker throws before responding,
+every pending and future request hangs indefinitely with no exception and no
+diagnostic; the leaked `Completer` never resolves. This is the specific gap
+that separates "beta" from "Supported." Remediated in Phase 9.
+
+**🟡 High risk — the "no main-thread blocking" claim shipped unverified.**
+Phase 6 documents that the manual `flutter run -d chrome` + DevTools
+Performance-panel confirmation was never performed (no `chromedriver`/GUI
+session in the automated implementation session) — only headless `dart test
+-p chrome` exercised the feature. Phase 7 nonetheless dropped the "(beta)"
+qualifier from `README.md` on the strength of the automated tests alone. The
+mechanism is sound in principle (the work genuinely runs off-thread), but the
+specific behaviour being marketed was never observed. Remediated in Phase 9
+(either perform the confirmation, or restore the qualifier until it exists).
+
+**🟡 High risk — checked-in `pdfium_worker.js` has no CI freshness gate.**
+The compiled worker artifact (`lib/assets/pdfium_worker.js`, ~5,800 lines) is
+regenerated only via the manual maintainer step `make build_wasm_worker`.
+`.github/workflows/cicd.yml` was not updated by this PR to rebuild or
+diff-check it — a future engine fix could pass all tests while the shipped
+worker silently still runs the old logic. Remediated in Phase 9.
+
+**🟠 Medium — two unbounded map leaks.** `_tokenQueues[token]` in
+`_document_web.dart` is never removed on `close()`, and `_pending` entries
+leak on any lost response (same root cause as the blocker). Both remediated
+in Phase 9.
+
+**What was confirmed correct, not just assumed:**
+
+- **Transfer safety.** Every buffer-producing path (`stripBitmapStride` /
+  the format-expander in `_bitmap_utils.dart`) allocates a fresh, disjoint
+  `Uint8List` before transfer — no case was found where a transferred
+  `ArrayBuffer` aliases the live WASM heap view. The `load` request
+  correctly opts out of transfer (`transferBuffers: false`) so the caller's
+  own input buffer isn't neutered.
+- **`Finalizer` vs `close()` race safety.** `close()` detaches the finalizer;
+  double-close is idempotent worker-side (registry-checked, free-only-if-
+  present); the finalizer's fire-and-forget close bypasses the per-token
+  queue but the worker's registry recheck prevents any use-after-free —
+  worst case is a benign `StateError` on an already-abandoned operation.
+- **RPC correlation and `close()` ordering.** Monotonic request ids avoid
+  collisions; `_sendForToken`'s per-token future-chaining genuinely enforces
+  `close()` sequencing against in-flight requests for the same document
+  (verified against the Phase 5 concurrent-request and cross-document-
+  isolation tests exercising the real worker) — this was implemented, not
+  just asserted in a comment.
+- **Coverage-gate honesty.** `_pdfium_worker_entry.dart` is genuinely thin
+  (a dispatch `switch` with no PDFium logic of its own, `// coverage:ignore`d
+  consistent with `pdfium_isolate.dart`'s convention); the 92.8% figure
+  reflects real coverage of the marshalling logic in
+  `_pdfium_wasm_engine.dart`/`_pdfium_worker_protocol.dart`, not a hole
+  hidden behind the worker boundary. The genuinely untested branches turned
+  out to be exactly the missing error-handling paths the blocker above
+  describes.
+- **No cross-platform regression.** `_document_native.dart`,
+  `pdfium_isolate.dart`, `isolate_messages.dart`, and the `pdf_document.dart`
+  façade are byte-for-byte unchanged by this PR.
+
+**Advisory (not gating, noted for awareness):** the streaming extraction
+APIs (`extractPlainText`/`extractAnnotations`/`extractImages`/`search`) now
+fetch all pages in one synchronous worker round-trip and fake-yield locally,
+rather than truly streaming incrementally — off-thread so the UI won't jank,
+but no first-item latency benefit or backpressure for very large documents.
+Already documented in the README; no action item raised for this plan.
+
 ## Summary
 
 - Replaced the web (WASM) backend's synchronous main-thread PDFium execution
@@ -1375,3 +1673,58 @@ already settled.
   adding a `lang="en"` attribute to the newly-scaffolded
   `integration_test_app/web/index.html` per the inclusivity skill's web-lang
   requirement.
+
+**Phase 9 — release-readiness remediation (added after Review 3):**
+
+PR #2 (Phases 1–8) was independently audited by a `release-ninja` review
+before merge (see Review 3 above). It confirmed the core architecture,
+memory-safety model, and RPC ordering were sound, but found one blocking gap
+and several risks that had to close before this could be treated as
+release-ready. Phase 9 remediated all five findings:
+
+- **Blocker — worker failure handling.** `_document_web.dart`'s
+  `_getWorker()` only listened for `onmessage`; a broken/crashed worker (e.g.
+  `pdfium_worker.js` 404ing at the wrong deployment path) left every pending
+  and future request hanging forever with no exception. Fixed by registering
+  `worker.onerror`/`onmessageerror`, both routed through a new
+  `_failAllPending(reason)` helper that fails every `_pending` completer with
+  a descriptive `PdfiumException` and clears the map, plus a 45-second
+  `.timeout()` on `_send`'s wait that independently cleans up a single
+  starved request.
+- **Main-thread-blocking verification, performed twice.** `integration_test_app/lib/main.dart`
+  (previously a bare placeholder) gained a real UI: a "Load & render large
+  PDF" button against a bundled 6.6 MB arXiv fixture, plus a
+  continuously-spinning `RotationTransition` icon as a low-tech responsiveness
+  indicator. Manually run by the user via `flutter run -d chrome`: first pass
+  — 658 ms for 26 pages, smooth spinner; second pass — an ad-hoc local 705-page
+  PDF (~10.3 MB, not committed), 10,494 ms with no stutter across the full
+  10.5-second operation. DevTools → Application → Frames → Web Workers
+  independently confirmed `pdfium_worker.js` runs as a genuine `Type: Web
+  Worker` execution context with `Cross-Origin-Embedder-Policy: None` —
+  empirically closing the Q5 COOP/COEP question in a real build, not just
+  `dart test -p chrome`. The "(beta)" qualifier stays dropped in `README.md`
+  on the strength of this evidence.
+- **CI freshness gate for the checked-in worker artifact.** Added a
+  `verify-wasm-worker` job to `.github/workflows/cicd.yml` that runs `make
+  build_wasm_worker` and fails on any diff to `lib/assets/pdfium_worker.js`
+  — closing the gap where a future engine fix could pass all tests while the
+  shipped worker JS silently stayed stale.
+- **Two map-leak fixes.** `close()` now removes its entry from
+  `_tokenQueues` once its queued close request completes (safe because
+  `_checkNotClosed()` + synchronous `_closed = true` prevent any further
+  enqueue for that token). New `test/pdfium_worker_rpc_failure_test.dart`
+  (3 tests) proves `_failAllPending` cannot leak a `_pending` entry, using
+  three new `@visibleForTesting` hooks (`debugRegisterPendingRequest`,
+  `debugHasPending`, `debugFailAllPending`) since a real broken-Worker event
+  can't be triggered deterministically from `dart test -p chrome` without
+  swapping the hardcoded worker URL. `_failAllPending` itself came out of the
+  `// coverage:ignore` block as a result — only the two thin DOM-event
+  handlers remain ignored.
+- Final verification: `make pre_commit` (604 tests, exit 0), `make web_test`
+  (396 tests), `make web_coverage` **92.7%** (1420/1531 lines, gate holds).
+- Two small, unrelated cleanups were made to `integration_test_app` while in
+  the area: deleted `test/widget_test.dart` (a permanently-broken default
+  Flutter template test referencing a `MyApp` class that never existed here
+  — `_App` is intentionally private, so this test could never have passed;
+  not referenced by any Makefile target or CI workflow), and removed an
+  unnecessary `dart:typed_data` import from `integration_test/pdfium_test.dart`.

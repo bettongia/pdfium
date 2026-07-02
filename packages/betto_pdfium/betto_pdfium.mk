@@ -233,6 +233,7 @@ stage_wasm_test_assets: fetch_wasm_assets
 # though the code they test (shared model/utility files) is real web-relevant
 # source.
 WEB_TEST_FILES := test/pdf_document_web_test.dart test/pdfium_wasm_engine_test.dart \
+	test/pdfium_worker_rpc_failure_test.dart \
 	test/bitmap_util_test.dart \
 	test/pdf_types_test.dart test/pdf_date_parser_test.dart \
 	test/pdf_page_size_test.dart
