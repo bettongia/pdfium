@@ -112,6 +112,21 @@ ffi_bindings:
 	@echo "ffi_bindings: done. Review and commit lib/src/generated/pdfium_bindings.dart"
 .PHONY: ffi_bindings
 
+# build_wasm_worker: regenerate the checked-in PDFium Worker entry-point
+# bundle (lib/assets/pdfium_worker.js) from lib/src/document/_pdfium_worker_entry.dart.
+# Maintainer-only — run after changing _pdfium_worker_entry.dart or any file
+# it depends on (the marshalling engine, wire protocol, or JS interop
+# bindings). Consumers never run this; they receive the pre-compiled artifact
+# via `make fetch_wasm_assets`. Analogous in spirit to
+# `make repack_ios_xcframework` — a release-time regeneration step.
+build_wasm_worker:
+	@mkdir -p $(BETTO_PKG)/lib/assets
+	cd $(BETTO_PKG) && dart compile js -O2 \
+	  -o lib/assets/pdfium_worker.js \
+	  lib/src/document/_pdfium_worker_entry.dart
+	@echo "build_wasm_worker: done. Review and commit lib/assets/pdfium_worker.js"
+.PHONY: build_wasm_worker
+
 fixtures:
 	@echo "fixtures: installing Python dependencies ..."
 	pip3 install --break-system-packages -r $(BETTO_PKG)/test/fixtures/generate/requirements.txt \
