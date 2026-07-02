@@ -122,8 +122,10 @@ On native platforms (iOS, Android, macOS, Windows, Linux) all PDFium calls run
 on a dedicated `Isolate` (the `PdfiumIsolate` singleton). The caller's isolate
 is never blocked.
 
-On web, PDFium is compiled to WebAssembly and runs on the browser main thread.
-A Web Worker path is deferred — see `plan_layout_aware_reordering.md`.
+On web, PDFium is compiled to WebAssembly and runs inside a dedicated
+`Worker`, not the browser main thread — see `spec/02_pdfium_isolate.md`'s
+"Web Worker concurrency model" section and
+[`plan_wasm_web_worker_offload.md`](../plans/completed/plan_wasm_web_worker_offload.md).
 
 ## Limitations
 

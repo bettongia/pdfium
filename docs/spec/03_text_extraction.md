@@ -73,33 +73,35 @@ calling `close()`.
 On native platforms (iOS, Android, macOS, Windows, Linux) all PDFium calls run on
 a dedicated `PdfiumIsolate` — a process-wide singleton that owns the PDFium library
 handle and serialises all FFI calls. The caller's isolate (typically the UI isolate)
-is never blocked. On web, PDFium is compiled to WebAssembly and runs on the
-browser's main thread (v1 limitation; see below).
+is never blocked. On web, PDFium is compiled to WebAssembly and runs inside a
+dedicated `Worker`, not the browser's main thread — see "Web: Worker offload"
+below.
 
 ## Limitations
 
-### Web: main-thread blocking
+### Web: Worker offload
 
-**Status: partially mitigated in v1; full remediation deferred.**
+**Status: implemented.** See
+[`plan_wasm_web_worker_offload.md`](../plans/completed/plan_wasm_web_worker_offload.md)
+and `spec/02_pdfium_isolate.md`'s "Web Worker concurrency model" section for
+the full design.
 
-WASM execution is synchronous on the browser's main thread. The `async` keyword
-on Dart methods does not offload WASM work to another thread. The `extractPlainText()`
-stream yields to the event loop between pages via `Future.delayed(Duration.zero)`,
-allowing the browser to process input and paint between page extractions. However,
-a single dense page can still produce a blocking WASM call of non-trivial duration.
+All PDFium WASM calls, including `extractPlainText()`, now run inside a
+dedicated `Worker` rather than the browser main thread — `dart:isolate` is not
+usable on web, so the web backend uses a hand-rolled `Worker` +
+`postMessage` RPC protocol mirroring the *shape* of the native isolate model.
+The `extractPlainText()` stream still yields between pages locally via
+`Future.delayed(Duration.zero)` after the worker returns its results, to
+preserve the cooperative-yielding shape of the public `Stream` API, but the
+underlying PDFium work no longer contends with the main thread's own event
+loop or rendering.
 
-**Caller guidance for v1:** prefer `extractPlainText(pageIndex: n)` over the
-all-pages stream when processing large documents on web, and consider displaying
-progress UI between calls.
-
-**Remediation path:** full remediation requires moving WASM execution to a
-[Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API),
-communicating with the main thread via message passing — the browser equivalent
-of the native isolate model. This is deferred to the layout-aware reordering
-implementation (`plan_layout_aware_reordering.md`), where the per-character
-`FPDFText_GetCharBox()` loop makes Web Worker execution essential regardless.
-Both features should be implemented together to avoid revisiting the web
-architecture twice.
+The layout-aware reordering work (`plan_layout_aware_reordering.md`) remains
+a separate, future item — it is about extraction *order* (see "Text
+extraction order" below), not about threading. The two were previously
+expected to land together to avoid revisiting the web architecture twice;
+that coupling no longer applies now that Worker offload has landed on its
+own.
 
 ### Text extraction order
 
