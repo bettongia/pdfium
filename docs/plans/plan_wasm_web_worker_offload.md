@@ -653,7 +653,7 @@ be called from both the main thread and a future worker.
 
 ### Phase 2 — Worker entry point and build tooling
 
-- [ ] Write `lib/src/document/_pdfium_worker_entry.dart` — a `void main()`
+- [x] Write `lib/src/document/_pdfium_worker_entry.dart` — a `void main()`
   that installs a `self.onmessage` listener (`WorkerGlobalScope`), loads the
   PDFium module via `importScripts('pdfium.js')` (the worker-context
   equivalent of today's `<script>`-tag injection in `_loadModule()` — DOM
@@ -662,18 +662,18 @@ be called from both the main thread and a future worker.
   registry, and dispatches incoming commands to the Phase 1 engine functions,
   posting results back via `postMessage` (with transferables for bitmap
   results — see Phase 3 for the detach caveat).
-- [ ] Add the maintainer-only `build_wasm_worker` target to
+- [x] Add the maintainer-only `build_wasm_worker` target to
   `betto_pdfium.mk` (sketch already in the Investigation section above):
   compiles `_pdfium_worker_entry.dart` to `lib/assets/pdfium_worker.js` via
   `dart compile js -O2`.
-- [ ] Run `make build_wasm_worker` and check the resulting
+- [x] Run `make build_wasm_worker` and check the resulting
   `lib/assets/pdfium_worker.js` into the repository (mirrors the `zstd`
   precedent of a small checked-in artifact).
-- [ ] Update `fetch_wasm_assets.sh` to also copy the package's checked-in
+- [x] Update `fetch_wasm_assets.sh` to also copy the package's checked-in
   `lib/assets/pdfium_worker.js` into the consumer's `web/assets/pdfium/`
   output directory, alongside `pdfium.wasm`/`pdfium.js`. No new consumer-facing
   step is introduced — this rides the existing `make fetch_wasm_assets` call.
-- [ ] Commit: `feat(wasm-worker): add worker entry point and build tooling`.
+- [x] Commit: `feat(wasm-worker): add worker entry point and build tooling`.
 
 ### Phase 3 — RPC protocol and main-thread client rewrite
 
