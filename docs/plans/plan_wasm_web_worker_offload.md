@@ -609,7 +609,7 @@ this needs an explicit decision.
 No behavioural change; this phase only restructures existing code so it can
 be called from both the main thread and a future worker.
 
-- [ ] Extract **one worker-reusable engine function per PDFium operation** —
+- [x] Extract **one worker-reusable engine function per PDFium operation** —
   load, close, pageCount, metadata, documentInfo, pageSize, render,
   thumbnail, extractText/annotations/images, renderImage, search, toc — into
   a new file, e.g. `lib/src/document/_pdfium_wasm_engine.dart`. Each function
@@ -634,7 +634,7 @@ be called from both the main thread and a future worker.
   thumbnail, documentInfo, or the streaming operations. The instance methods
   in `_document_web.dart` become thin callers of these engine functions for
   the remainder of this phase (unchanged behaviour).
-- [ ] **Also extract the module-bootstrap logic** (today's `_loadModule()` —
+- [x] **Also extract the module-bootstrap logic** (today's `_loadModule()` —
   the `<script>`-tag injection + `onRuntimeInitialized` wait) into the same
   file (or an adjacent one), as a function independently callable on the
   main thread. This is deliberate: Phase 3 rewrites `_document_web.dart` into
@@ -643,12 +643,12 @@ be called from both the main thread and a future worker.
   PDFium module **on the main thread, bypassing the worker** — without this
   extraction, that capability would disappear once Phase 3 lands, and Phase 4
   would have nothing left to call.
-- [ ] `_document_web.dart` calls the extracted engine and bootstrap functions
+- [x] `_document_web.dart` calls the extracted engine and bootstrap functions
   exactly as before; `_module`/`_registry` stay where they are for now.
   Behaviour is unchanged — this phase does **not** introduce the `Worker` yet.
-- [ ] Run `make pre_commit` and `make web_test` — the full existing test
+- [x] Run `make pre_commit` and `make web_test` — the full existing test
   suite must pass unchanged, since this phase is a pure refactor.
-- [ ] Commit: `refactor(wasm): extract PDFium marshalling engine into a
+- [x] Commit: `refactor(wasm): extract PDFium marshalling engine into a
   worker-reusable module`.
 
 ### Phase 2 — Worker entry point and build tooling
