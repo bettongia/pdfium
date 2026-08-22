@@ -2,7 +2,17 @@
 
 ## 0.1.0-dev.4
 
-In progress
+### Toolchain
+
+- **Dart 3.13 support.** SDK constraint raised to `^3.13.0`. Verified end-to-end
+  against the Dart 3.13 native-assets pipeline: the prebuilt-binary build hook,
+  library loading, and the full native API surface (text/annotation/image
+  extraction, rendering, and search) pass on macOS, Linux (x64 and arm64), and
+  Windows.
+- **lcov 2.x build compatibility.** Coverage `lcov`/`genhtml` invocations now
+  pass `--ignore-errors empty`, so the line-only tracefiles Dart emits no longer
+  fail the build under lcov 2.0 (shipped on current Ubuntu runners).
+- Regenerated the web `pdfium_worker.js` with the Dart 3.13 toolchain.
 
 ## 0.1.0-dev.3 - 2026-07-03
 

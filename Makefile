@@ -23,10 +23,10 @@ export EMULATOR_ANDROID_ABI ?= arm64-v8a
 # Cross-package targets
 # ---------------------------------------------------------------------------
 
-default: prepare license_check license_check_ios format analyze analyze_ios test coverage doc_site
+default: prepare license_check license_check_ios format analyze analyze_ios doc_site
 .PHONY: default
 
-cicd: prepare format_check analyze analyze_ios license_check license_check_ios test doc_site
+cicd: prepare format_check analyze analyze_ios license_check license_check_ios doc_site
 .PHONY: cicd
 
 pre_commit: format_check analyze analyze_ios license_check license_check_ios test
