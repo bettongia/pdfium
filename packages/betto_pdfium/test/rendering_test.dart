@@ -135,18 +135,15 @@ void main() {
       },
     );
 
-    test(
-      'renderPageToBytes result.pixels length equals pixelWidth * pixelHeight * 4 (BGRA)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        doc = await openData('01_basic.pdf');
-        final result = await doc.renderPageToBytes(0, 100, 100);
-        expect(result.pixels.length, equals(100 * 100 * 4));
-      },
-    );
+    test('renderPageToBytes result.pixels length equals pixelWidth * pixelHeight * 4 (BGRA)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      doc = await openData('01_basic.pdf');
+      final result = await doc.renderPageToBytes(0, 100, 100);
+      expect(result.pixels.length, equals(100 * 100 * 4));
+    });
 
     test(
       'renderPageToBytes result.pixels is not all-zero for a text page',
@@ -194,37 +191,31 @@ void main() {
       },
     );
 
-    test(
-      'renderPageToBytes with zero width throws (PdfiumException from native alloc)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        doc = await openData('01_basic.pdf');
-        // PDFium's FPDFBitmap_Create returns null for a 0-pixel dimension;
-        // the isolate converts this to a PdfiumException rather than a RangeError.
-        await expectLater(
-          () => doc.renderPageToBytes(0, 0, 100),
-          throwsA(isA<PdfiumException>()),
-        );
-      },
-    );
+    test('renderPageToBytes with zero width throws (PdfiumException from native alloc)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      doc = await openData('01_basic.pdf');
+      // PDFium's FPDFBitmap_Create returns null for a 0-pixel dimension;
+      // the isolate converts this to a PdfiumException rather than a RangeError.
+      await expectLater(
+        () => doc.renderPageToBytes(0, 0, 100),
+        throwsA(isA<PdfiumException>()),
+      );
+    });
 
-    test(
-      'renderPageToBytes with zero height throws (PdfiumException from native alloc)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        doc = await openData('01_basic.pdf');
-        await expectLater(
-          () => doc.renderPageToBytes(0, 100, 0),
-          throwsA(isA<PdfiumException>()),
-        );
-      },
-    );
+    test('renderPageToBytes with zero height throws (PdfiumException from native alloc)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      doc = await openData('01_basic.pdf');
+      await expectLater(
+        () => doc.renderPageToBytes(0, 100, 0),
+        throwsA(isA<PdfiumException>()),
+      );
+    });
 
     test('renderPageToBytes throws StateError after close()', () async {
       if (!nativeAvailable()) {

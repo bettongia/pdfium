@@ -76,40 +76,34 @@ void main() {
     // no_annotations.pdf
     // -------------------------------------------------------------------------
 
-    test(
-      'no_annotations.pdf — stream yields one PdfPageAnnotations with empty list',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        doc = await openFixture('no_annotations.pdf');
-        final pages = await doc.extractAnnotations().toList();
-        expect(pages, hasLength(1));
-        expect(pages.first.pageIndex, equals(0));
-        expect(pages.first.annotations, isEmpty);
-      },
-    );
+    test('no_annotations.pdf — stream yields one PdfPageAnnotations with empty list', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      doc = await openFixture('no_annotations.pdf');
+      final pages = await doc.extractAnnotations().toList();
+      expect(pages, hasLength(1));
+      expect(pages.first.pageIndex, equals(0));
+      expect(pages.first.annotations, isEmpty);
+    });
 
     // -------------------------------------------------------------------------
     // annotated_text.pdf — PdfTextAnnotation + PdfMarkupAnnotation
     // -------------------------------------------------------------------------
 
-    test(
-      'annotated_text.pdf — first page has 3 annotations (highlight, text, underline)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        doc = await openFixture('annotated_text.pdf');
-        final pages = await doc.extractAnnotations().toList();
-        expect(pages, hasLength(1));
-        final annots = pages.first.annotations;
-        // Reference: annotated_text.annot.json has 3 annotations.
-        expect(annots, hasLength(3));
-      },
-    );
+    test('annotated_text.pdf — first page has 3 annotations (highlight, text, underline)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      doc = await openFixture('annotated_text.pdf');
+      final pages = await doc.extractAnnotations().toList();
+      expect(pages, hasLength(1));
+      final annots = pages.first.annotations;
+      // Reference: annotated_text.annot.json has 3 annotations.
+      expect(annots, hasLength(3));
+    });
 
     test(
       'annotated_text.pdf — contains a PdfTextAnnotation (sticky note)',
@@ -157,26 +151,23 @@ void main() {
     // annotated_shapes.pdf — PdfShapeAnnotation, PdfLineAnnotation
     // -------------------------------------------------------------------------
 
-    test(
-      'annotated_shapes.pdf — contains PdfShapeAnnotation with expected subtype',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        doc = await openFixture('annotated_shapes.pdf');
-        final pages = await doc.extractAnnotations().toList();
-        expect(pages, hasLength(1));
-        // Reference: annotated_shapes.annot.json has 3 annotations (Square, Circle, Line).
-        expect(pages.first.annotations, hasLength(3));
-        final shapes = pages.first.annotations
-            .whereType<PdfShapeAnnotation>()
-            .toList();
-        expect(shapes, isNotEmpty);
-        final subtypes = shapes.map((s) => s.subtype).toSet();
-        expect(subtypes, contains(PdfAnnotationType.square));
-      },
-    );
+    test('annotated_shapes.pdf — contains PdfShapeAnnotation with expected subtype', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      doc = await openFixture('annotated_shapes.pdf');
+      final pages = await doc.extractAnnotations().toList();
+      expect(pages, hasLength(1));
+      // Reference: annotated_shapes.annot.json has 3 annotations (Square, Circle, Line).
+      expect(pages.first.annotations, hasLength(3));
+      final shapes = pages.first.annotations
+          .whereType<PdfShapeAnnotation>()
+          .toList();
+      expect(shapes, isNotEmpty);
+      final subtypes = shapes.map((s) => s.subtype).toSet();
+      expect(subtypes, contains(PdfAnnotationType.square));
+    });
 
     // -------------------------------------------------------------------------
     // annotated_ink.pdf — PdfInkAnnotation

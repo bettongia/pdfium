@@ -213,8 +213,7 @@ void main() {
       expect(
         platforms.containsKey('ios-arm64'),
         isFalse,
-        reason:
-            'iOS xcframework is referenced from Package.swift, not the manifest',
+        reason: 'iOS xcframework is referenced from Package.swift, not the manifest',
       );
     });
   });

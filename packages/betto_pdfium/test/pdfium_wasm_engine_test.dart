@@ -404,34 +404,31 @@ void main() {
       }
     });
 
-    test(
-      'engineExtractPageAnnotations — squiggly, strikeout, stamp, freetext, polygon',
-      () async {
-        final bytes = await _fetchFixture('annotated_extra.pdf');
-        final rec = engineLoadDocument(module, bytes);
-        try {
-          final annots = engineExtractPageAnnotations(module, rec.docPtr, 0);
-          expect(annots.whereType<PdfStampAnnotation>(), isNotEmpty);
-          expect(annots.whereType<PdfFreeTextAnnotation>(), isNotEmpty);
-          final polygons = annots.whereType<PdfPolygonAnnotation>().toList();
-          expect(polygons, isNotEmpty);
-          expect(polygons.first.vertices, isNotEmpty);
-          final markupSubtypes = annots
-              .whereType<PdfMarkupAnnotation>()
-              .map((m) => m.subtype)
-              .toSet();
-          expect(
-            markupSubtypes,
-            containsAll([
-              PdfAnnotationType.squiggly,
-              PdfAnnotationType.strikeout,
-            ]),
-          );
-        } finally {
-          engineCloseDocument(module, rec.docPtr, rec.bufPtr);
-        }
-      },
-    );
+    test('engineExtractPageAnnotations — squiggly, strikeout, stamp, freetext, polygon', () async {
+      final bytes = await _fetchFixture('annotated_extra.pdf');
+      final rec = engineLoadDocument(module, bytes);
+      try {
+        final annots = engineExtractPageAnnotations(module, rec.docPtr, 0);
+        expect(annots.whereType<PdfStampAnnotation>(), isNotEmpty);
+        expect(annots.whereType<PdfFreeTextAnnotation>(), isNotEmpty);
+        final polygons = annots.whereType<PdfPolygonAnnotation>().toList();
+        expect(polygons, isNotEmpty);
+        expect(polygons.first.vertices, isNotEmpty);
+        final markupSubtypes = annots
+            .whereType<PdfMarkupAnnotation>()
+            .map((m) => m.subtype)
+            .toSet();
+        expect(
+          markupSubtypes,
+          containsAll([
+            PdfAnnotationType.squiggly,
+            PdfAnnotationType.strikeout,
+          ]),
+        );
+      } finally {
+        engineCloseDocument(module, rec.docPtr, rec.bufPtr);
+      }
+    });
 
     test('engineExtractPageAnnotations — popup linked to parent', () async {
       final bytes = await _fetchFixture('popup_annotation.pdf');

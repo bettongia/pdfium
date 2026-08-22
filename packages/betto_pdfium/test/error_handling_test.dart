@@ -58,54 +58,48 @@ void main() {
     // Loading failures
     // -------------------------------------------------------------------------
 
-    test(
-      'fromBytes with corrupt.pdf throws PdfExtractionException(invalidDocument)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        final bytes = _readFixture('corrupt.pdf');
-        // The isolate maps any non-password PDFium load error to invalidDocument.
-        await expectLater(
-          () => PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath()),
-          throwsA(
-            isA<PdfExtractionException>().having(
-              (e) => e.error,
-              'error',
-              PdfError.invalidDocument,
-            ),
+    test('fromBytes with corrupt.pdf throws PdfExtractionException(invalidDocument)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      final bytes = _readFixture('corrupt.pdf');
+      // The isolate maps any non-password PDFium load error to invalidDocument.
+      await expectLater(
+        () => PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath()),
+        throwsA(
+          isA<PdfExtractionException>().having(
+            (e) => e.error,
+            'error',
+            PdfError.invalidDocument,
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
-    test(
-      'fromBytes with password.pdf throws PdfExtractionException(passwordRequired)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not present');
-          return;
-        }
-        final bytes = _readFixture('password.pdf');
-        // The isolate maps FPDF_ERR_PASSWORD (4) to passwordRequired.
-        // On Windows the bblanchon PDFium build returns FPDF_ERR_FORMAT (3)
-        // for this fixture, mapping to invalidDocument instead.
-        final expectedError = Platform.isWindows
-            ? PdfError.invalidDocument
-            : PdfError.passwordRequired;
-        await expectLater(
-          () => PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath()),
-          throwsA(
-            isA<PdfExtractionException>().having(
-              (e) => e.error,
-              'error',
-              expectedError,
-            ),
+    test('fromBytes with password.pdf throws PdfExtractionException(passwordRequired)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not present');
+        return;
+      }
+      final bytes = _readFixture('password.pdf');
+      // The isolate maps FPDF_ERR_PASSWORD (4) to passwordRequired.
+      // On Windows the bblanchon PDFium build returns FPDF_ERR_FORMAT (3)
+      // for this fixture, mapping to invalidDocument instead.
+      final expectedError = Platform.isWindows
+          ? PdfError.invalidDocument
+          : PdfError.passwordRequired;
+      await expectLater(
+        () => PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath()),
+        throwsA(
+          isA<PdfExtractionException>().having(
+            (e) => e.error,
+            'error',
+            expectedError,
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     // -------------------------------------------------------------------------
     // close() idempotency
