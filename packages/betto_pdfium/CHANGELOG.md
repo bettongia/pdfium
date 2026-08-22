@@ -1,12 +1,14 @@
 # betto_pdfium
 
+## 0.1.0-dev.5
+
 ## 0.1.0-dev.4
 
 ### Fixed
 
 - **Native library resolution in a Pub workspace.** When `dart test` runs from a
-  workspace *member* package, the native-assets pipeline stages the bundled
-  PDFium library to the *workspace root* `.dart_tool/lib/`, not the package's
+  workspace _member_ package, the native-assets pipeline stages the bundled
+  PDFium library to the _workspace root_ `.dart_tool/lib/`, not the package's
   own. The runtime loader previously probed only the current directory, so a
   PDFium call issued from a spawned isolate (which cannot see the test runner's
   `LD_LIBRARY_PATH`) failed to load the library with

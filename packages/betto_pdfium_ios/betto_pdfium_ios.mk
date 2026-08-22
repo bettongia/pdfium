@@ -27,6 +27,7 @@ license_check_ios:
 	  --ignore="**/*.txt" \
 	  --ignore="**/.dart_tool/**" \
 	  --ignore="build/**" \
+	  --ignore="**/.build/**" \
 	  $(BETTO_IOS)
 .PHONY: license_check_ios
 
