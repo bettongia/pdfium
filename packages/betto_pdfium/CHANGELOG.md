@@ -2,6 +2,19 @@
 
 ## 0.1.0-dev.4
 
+### Fixed
+
+- **Native library resolution in a Pub workspace.** When `dart test` runs from a
+  workspace *member* package, the native-assets pipeline stages the bundled
+  PDFium library to the *workspace root* `.dart_tool/lib/`, not the package's
+  own. The runtime loader previously probed only the current directory, so a
+  PDFium call issued from a spawned isolate (which cannot see the test runner's
+  `LD_LIBRARY_PATH`) failed to load the library with
+  `cannot open shared object file`. The loader now walks up from the working
+  directory, probing each ancestor's `.dart_tool/lib/`, covering both the
+  single-package and workspace layouts on Linux, macOS, and Windows. This
+  surfaced under Dart 3.13 in the `kmdb` workspace's PDF vault indexing.
+
 ### Toolchain
 
 - **Dart 3.13 support.** SDK constraint raised to `^3.13.0`. Verified end-to-end

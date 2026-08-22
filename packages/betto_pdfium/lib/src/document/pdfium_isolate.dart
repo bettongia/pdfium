@@ -45,6 +45,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
 
 import '../generated/pdfium_bindings.dart';
 import '../pdfium_version.dart';
@@ -2879,6 +2880,34 @@ String? _defaultDylibPathOrNull() {
 }
 // coverage:ignore-end
 
+/// Candidate `.dart_tool/lib/<libName>` paths for [startDir] and each of its
+/// ancestor directories, nearest-first.
+///
+/// In a Pub **workspace**, `dart test` run from inside a member package
+/// directory stages native-asset libraries to the *workspace root*
+/// `.dart_tool/lib/`, not the package's own `.dart_tool/lib/`. Probing only the
+/// current directory therefore misses the staged library whenever the process's
+/// working directory is a workspace member rather than the workspace root — the
+/// exact layout a consumer such as `kmdb` presents when its `dart test` spawns
+/// an isolate that loads PDFium (the spawned isolate cannot see the test
+/// runner's `LD_LIBRARY_PATH`, so the bare-name fallback fails too). Walking up
+/// the tree covers both the single-package layout (library staged in
+/// [startDir]) and the workspace layout (library staged in an ancestor root).
+@visibleForTesting
+List<String> dartToolLibCandidates(String startDir, String libName) {
+  final candidates = <String>[];
+  var dir = Directory(startDir).absolute;
+  while (true) {
+    candidates.add('${dir.path}/.dart_tool/lib/$libName');
+    final parent = dir.parent;
+    // Directory.parent of a filesystem root returns the same directory —
+    // that is the loop's termination condition.
+    if (parent.path == dir.path) break;
+    dir = parent;
+  }
+  return candidates;
+}
+
 /// Opens the PDFium [ffi.DynamicLibrary] for the current platform using
 /// native-assets auto-detection.
 ///
@@ -2928,8 +2957,9 @@ ffi.DynamicLibrary _openLibrary() {
     final candidates = <String>[
       // dart build cli: bundle/bin/<exe> → bundle/lib/<libName>.
       '$exeDir/../lib/$libName',
-      // dart test / dart run (JIT): build system stages to .dart_tool/lib/.
-      '$cwd/.dart_tool/lib/$libName',
+      // dart test / dart run (JIT): build system stages to .dart_tool/lib/ —
+      // walk up from cwd so the Pub-workspace-root staging is found too.
+      ...dartToolLibCandidates(cwd, libName),
       // Hook cache direct path (fallback if staging hasn't copied the file).
       '$cwd/.dart_tool/betto_pdfium/$bblanchonBuild/$libName',
     ];
@@ -2967,8 +2997,9 @@ ffi.DynamicLibrary _openLibrary() {
     final candidates = <String>[
       // dart build cli: bundle/bin/<exe> → bundle/lib/<dylib>.
       '$exeDir/../lib/$dylib',
-      // dart test / dart run (JIT): build system stages to .dart_tool/lib/.
-      '$cwd/.dart_tool/lib/$dylib',
+      // dart test / dart run (JIT): build system stages to .dart_tool/lib/ —
+      // walk up from cwd so the Pub-workspace-root staging is found too.
+      ...dartToolLibCandidates(cwd, dylib),
       // Hook cache direct path (fallback if staging hasn't copied the file).
       '$cwd/.dart_tool/betto_pdfium/$bblanchonBuild/$dylib',
     ];
@@ -2998,8 +3029,9 @@ ffi.DynamicLibrary _openLibrary() {
     final candidates = <String>[
       // dart build cli: bundle\bin\<exe> → bundle\lib\pdfium.dll
       '$exeDir/../lib/$dllName',
-      // dart test / dart run (JIT): staged to .dart_tool/lib/
-      '$cwd/.dart_tool/lib/$dllName',
+      // dart test / dart run (JIT): staged to .dart_tool/lib/ — walk up from
+      // cwd so the Pub-workspace-root staging is found too.
+      ...dartToolLibCandidates(cwd, dllName),
       // Hook cache direct path (fallback if staging hasn't copied the file).
       '$cwd/.dart_tool/betto_pdfium/$bblanchonBuild/$dllName',
     ];
