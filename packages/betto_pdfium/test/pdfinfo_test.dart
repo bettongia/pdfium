@@ -73,26 +73,23 @@ void main() {
         },
       );
 
-      test(
-        '--toc on a document with flat bookmarks prints each entry with page number',
-        () async {
-          if (!nativeAvailable()) {
-            markTestSkipped('PDFium dylib not found — skipping native tests.');
-            return;
-          }
+      test('--toc on a document with flat bookmarks prints each entry with page number', () async {
+        if (!nativeAvailable()) {
+          markTestSkipped('PDFium dylib not found — skipping native tests.');
+          return;
+        }
 
-          final result = await _runPdfinfo('flat_toc.pdf', flags: ['--toc']);
-          expect(result.exitCode, equals(0));
-          final out = result.stdout as String;
-          expect(out, contains('Table of Contents'));
-          expect(out, contains('Chapter 1'));
-          expect(out, contains('page 1'));
-          expect(out, contains('Chapter 2'));
-          expect(out, contains('page 2'));
-          expect(out, contains('Chapter 3'));
-          expect(out, contains('page 3'));
-        },
-      );
+        final result = await _runPdfinfo('flat_toc.pdf', flags: ['--toc']);
+        expect(result.exitCode, equals(0));
+        final out = result.stdout as String;
+        expect(out, contains('Table of Contents'));
+        expect(out, contains('Chapter 1'));
+        expect(out, contains('page 1'));
+        expect(out, contains('Chapter 2'));
+        expect(out, contains('page 2'));
+        expect(out, contains('Chapter 3'));
+        expect(out, contains('page 3'));
+      });
 
       test(
         '--toc on nested bookmarks prints children with deeper indentation',
@@ -279,20 +276,17 @@ void main() {
       return PdfDocument.fromBytes(bytes, dylibPath: nativeDylibPath());
     }
 
-    test(
-      'full_metadata.pdf — fileVersion is non-null and plausible (>= 14 for PDF 1.4)',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not found — skipping native tests.');
-          return;
-        }
-        doc = await openFixture('full_metadata.pdf');
-        final info = await doc.getDocumentInfo();
-        expect(info.fileVersion, isNotNull);
-        // full_metadata.pdf is a PDF 1.3 document (fileVersion == 13).
-        expect(info.fileVersion, greaterThanOrEqualTo(10));
-      },
-    );
+    test('full_metadata.pdf — fileVersion is non-null and plausible (>= 14 for PDF 1.4)', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not found — skipping native tests.');
+        return;
+      }
+      doc = await openFixture('full_metadata.pdf');
+      final info = await doc.getDocumentInfo();
+      expect(info.fileVersion, isNotNull);
+      // full_metadata.pdf is a PDF 1.3 document (fileVersion == 13).
+      expect(info.fileVersion, greaterThanOrEqualTo(10));
+    });
 
     test(
       'partial_metadata.pdf — call succeeds; permanentId may be null',
@@ -320,24 +314,21 @@ void main() {
       expect(info, isNotNull);
     });
 
-    test(
-      'toString on PdfDocumentInfo with non-null permanentId produces hex string',
-      () async {
-        if (!nativeAvailable()) {
-          markTestSkipped('PDFium dylib not found — skipping native tests.');
-          return;
-        }
-        doc = await openFixture('full_metadata.pdf');
-        final info = await doc.getDocumentInfo();
-        final s = info.toString();
-        expect(s, contains('PdfDocumentInfo'));
-        expect(s, contains('fileVersion:'));
-        // When permanentId is present it should be encoded as a hex string.
-        if (info.permanentId != null) {
-          expect(s, isNot(contains('permanentId: null')));
-        }
-      },
-    );
+    test('toString on PdfDocumentInfo with non-null permanentId produces hex string', () async {
+      if (!nativeAvailable()) {
+        markTestSkipped('PDFium dylib not found — skipping native tests.');
+        return;
+      }
+      doc = await openFixture('full_metadata.pdf');
+      final info = await doc.getDocumentInfo();
+      final s = info.toString();
+      expect(s, contains('PdfDocumentInfo'));
+      expect(s, contains('fileVersion:'));
+      // When permanentId is present it should be encoded as a hex string.
+      if (info.permanentId != null) {
+        expect(s, isNot(contains('permanentId: null')));
+      }
+    });
 
     test('getDocumentInfo() throws StateError after close()', () async {
       if (!nativeAvailable()) {

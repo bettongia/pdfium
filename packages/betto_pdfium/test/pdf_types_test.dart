@@ -2108,38 +2108,32 @@ void main() {
       expect(base, isNot(equals(other)));
     });
 
-    test(
-      'unequal when quadPoints differ (different count — _listEqual length branch)',
-      () {
-        // Empty list: exercises the length-mismatch branch in _listEqual.
-        final other = PdfMarkupAnnotation(
-          pageIndex: 0,
-          subtype: PdfAnnotationType.highlight,
-          quadPoints: const [],
-          flags: 4,
-        );
-        expect(base, isNot(equals(other)));
-      },
-    );
+    test('unequal when quadPoints differ (different count — _listEqual length branch)', () {
+      // Empty list: exercises the length-mismatch branch in _listEqual.
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [],
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
 
-    test(
-      'unequal when quadPoints differ (same count, different content — _listEqual element branch)',
-      () {
-        const diffQuad = PdfQuadPoints(
-          p1: PdfPoint(x: 0.0, y: 0.0),
-          p2: PdfPoint(x: 1.0, y: 0.0),
-          p3: PdfPoint(x: 0.0, y: 1.0),
-          p4: PdfPoint(x: 1.0, y: 1.0),
-        );
-        final other = PdfMarkupAnnotation(
-          pageIndex: 0,
-          subtype: PdfAnnotationType.highlight,
-          quadPoints: const [diffQuad],
-          flags: 4,
-        );
-        expect(base, isNot(equals(other)));
-      },
-    );
+    test('unequal when quadPoints differ (same count, different content — _listEqual element branch)', () {
+      const diffQuad = PdfQuadPoints(
+        p1: PdfPoint(x: 0.0, y: 0.0),
+        p2: PdfPoint(x: 1.0, y: 0.0),
+        p3: PdfPoint(x: 0.0, y: 1.0),
+        p4: PdfPoint(x: 1.0, y: 1.0),
+      );
+      final other = PdfMarkupAnnotation(
+        pageIndex: 0,
+        subtype: PdfAnnotationType.highlight,
+        quadPoints: const [diffQuad],
+        flags: 4,
+      );
+      expect(base, isNot(equals(other)));
+    });
 
     test('unequal when markedText differs', () {
       final other = PdfMarkupAnnotation(

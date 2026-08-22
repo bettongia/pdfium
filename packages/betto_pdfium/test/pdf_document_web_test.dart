@@ -497,38 +497,32 @@ void main() {
         expect(withPopup.length, greaterThan(1));
       });
 
-      test(
-        'zero_ink_stroke.pdf — ink annotation with zero-point stroke is returned',
-        () async {
-          doc = await PdfDocument.fromBytes(
-            await _fetchFixture('zero_ink_stroke.pdf'),
-          );
-          final pages = await doc.extractAnnotations().toList();
-          final inkAnnots = pages
-              .expand((p) => p.annotations)
-              .whereType<PdfInkAnnotation>()
-              .toList();
-          expect(inkAnnots, isNotEmpty);
-          expect(inkAnnots.first.strokes, isNotEmpty);
-          expect(inkAnnots.first.strokes.first, isEmpty);
-        },
-      );
+      test('zero_ink_stroke.pdf — ink annotation with zero-point stroke is returned', () async {
+        doc = await PdfDocument.fromBytes(
+          await _fetchFixture('zero_ink_stroke.pdf'),
+        );
+        final pages = await doc.extractAnnotations().toList();
+        final inkAnnots = pages
+            .expand((p) => p.annotations)
+            .whereType<PdfInkAnnotation>()
+            .toList();
+        expect(inkAnnots, isNotEmpty);
+        expect(inkAnnots.first.strokes, isNotEmpty);
+        expect(inkAnnots.first.strokes.first, isEmpty);
+      });
 
-      test(
-        'zero_polygon_vertices.pdf — polygon with empty vertices does not throw',
-        () async {
-          doc = await PdfDocument.fromBytes(
-            await _fetchFixture('zero_polygon_vertices.pdf'),
-          );
-          final pages = await doc.extractAnnotations().toList();
-          final polygons = pages
-              .expand((p) => p.annotations)
-              .whereType<PdfPolygonAnnotation>()
-              .toList();
-          expect(polygons, isNotEmpty);
-          expect(polygons.first.vertices, isEmpty);
-        },
-      );
+      test('zero_polygon_vertices.pdf — polygon with empty vertices does not throw', () async {
+        doc = await PdfDocument.fromBytes(
+          await _fetchFixture('zero_polygon_vertices.pdf'),
+        );
+        final pages = await doc.extractAnnotations().toList();
+        final polygons = pages
+            .expand((p) => p.annotations)
+            .whereType<PdfPolygonAnnotation>()
+            .toList();
+        expect(polygons, isNotEmpty);
+        expect(polygons.first.vertices, isEmpty);
+      });
 
       test(
         'annotated_extra.pdf — squiggly, strikeout, stamp, freetext, polygon',

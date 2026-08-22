@@ -59,14 +59,19 @@ license_add:
 
 coverage:
 	cd $(BETTO_PKG) && dart test --coverage-path=coverage/lcov.info
-	lcov --remove $(BETTO_PKG)/coverage/lcov.info '*/generated/*' -o $(BETTO_PKG)/coverage/lcov.info
+	# --ignore-errors empty: Dart emits line-only tracefiles (no function/branch
+	# coverpoints); lcov 2.x (ubuntu-noble ships 2.0) treats that as a fatal
+	# "(empty) function coverage enabled but no corresponding coverpoints found"
+	# error. The removal still completes correctly; this just stops the non-zero
+	# exit from failing the build.
+	lcov --ignore-errors empty --remove $(BETTO_PKG)/coverage/lcov.info '*/generated/*' -o $(BETTO_PKG)/coverage/lcov.info
 	$(MAKE) --no-print-directory coverage_html
 .PHONY: coverage
 
 coverage_html:
 	@if [ -f $(BETTO_PKG)/coverage/lcov.info ]; then \
 	  rm -rf $(SITE_DIR)/coverage && \
-	  genhtml $(BETTO_PKG)/coverage/lcov.info -o $(SITE_DIR)/coverage; \
+	  genhtml --ignore-errors empty $(BETTO_PKG)/coverage/lcov.info -o $(SITE_DIR)/coverage; \
 	else \
 	  echo "coverage_html: skipping — no lcov.info found; run 'make coverage' first"; \
 	fi
@@ -254,7 +259,7 @@ web_test: stage_wasm_test_assets
 web_coverage: stage_wasm_test_assets
 	cd $(BETTO_PKG) && dart test -p chrome --coverage-path=coverage/web/lcov.info $(WEB_TEST_FILES)
 	@if [ -f $(BETTO_PKG)/coverage/web/lcov.info ]; then \
-	  lcov --extract $(BETTO_PKG)/coverage/web/lcov.info '*/betto_pdfium/lib/*' -o $(BETTO_PKG)/coverage/web/lcov.info; \
+	  lcov --ignore-errors empty --extract $(BETTO_PKG)/coverage/web/lcov.info '*/betto_pdfium/lib/*' -o $(BETTO_PKG)/coverage/web/lcov.info; \
 	  echo "web_coverage: computing web coverage ..."; \
 	  LINES_FOUND=$$(grep -c '^DA:' $(BETTO_PKG)/coverage/web/lcov.info || echo 0); \
 	  LINES_HIT=$$(grep '^DA:' $(BETTO_PKG)/coverage/web/lcov.info | grep -v ',0$$' | wc -l | tr -d '[:space:]'); \
