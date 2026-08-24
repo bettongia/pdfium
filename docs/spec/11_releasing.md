@@ -9,9 +9,12 @@ This repository contains two pub packages that must be released in lock-step:
 | `betto_pdfium` | `packages/betto_pdfium/` | Published first |
 | `betto_pdfium_ios` | `packages/betto_pdfium_ios/` | Published second |
 
-`betto_pdfium_ios` declares a version constraint on `betto_pdfium` in its
-`pubspec.yaml`. Always publish `betto_pdfium` first so the version is available
-on pub.dev before `betto_pdfium_ios` references it.
+`betto_pdfium_ios` does **not** declare a Dart dependency on `betto_pdfium` —
+it is a no-op Flutter plugin whose only job is to carry the PDFium xcframework
+as an SPM binary target. The two are nonetheless versioned in lock-step and
+published together (see [Staying in sync](#staying-in-sync)). Publish
+`betto_pdfium` first so that a consumer adding both packages at the same
+version never sees a half-published pair on pub.dev.
 
 ## Bumping the PDFium version (bblanchon)
 
@@ -44,10 +47,16 @@ Before publishing either package:
 1. All tests pass: `make pre_commit`
 2. Coverage ≥ 90%: `make coverage`
 3. Both packages have identical version numbers in their `pubspec.yaml` files.
-4. `CHANGELOG.md` at the repo root is updated with a release entry.
+4. Each package's `CHANGELOG.md` has an entry for the new version
+   (`packages/betto_pdfium/CHANGELOG.md` and
+   `packages/betto_pdfium_ios/CHANGELOG.md`). There is no repo-root
+   `CHANGELOG.md`.
 5. The PDFium binary manifest `packages/betto_pdfium/version_pdfium.json` is
    committed with checksums for all platforms (see
    [PDFium Binary Distribution](01_binary_distribution.md)).
+6. The install snippets in both package `README.md` files reference the version
+   being released, not a superseded one — they render on the pub.dev landing
+   page.
 
 ## Version numbering
 
@@ -65,19 +74,24 @@ packages/betto_pdfium/pubspec.yaml
 packages/betto_pdfium_ios/pubspec.yaml
 ```
 
-## Updating betto_pdfium_ios's dependency on betto_pdfium
+## Updating the README install snippets
 
-`packages/betto_pdfium_ios/pubspec.yaml` must declare a dependency on
-`betto_pdfium` using a version constraint that matches the release:
+Both package `README.md` files show the constraint consumers should add to
+their `pubspec.yaml`:
 
 ```yaml
 dependencies:
   betto_pdfium: ^<version>
+  betto_pdfium_ios: ^<version>
 ```
 
-The constraint should allow all compatible patch/minor versions, not pin to an
-exact version, so that users can adopt `betto_pdfium` patch releases without
-waiting for a `betto_pdfium_ios` release.
+Update these whenever the version changes. Use a caret constraint rather than
+an exact pin so consumers can adopt patch releases.
+
+Note that a caret constraint on a stable version (`^0.1.0`) does **not** match
+a prerelease (`0.1.0-dev.1`). While the packages are on `-dev.N` snapshots the
+snippets must name the snapshot explicitly, or downstream `pub get` will fail
+to resolve.
 
 ## Dry-run validation
 
@@ -118,7 +132,8 @@ dart pub publish
 
 ## Post-release
 
-1. Tag the release in git: `git tag v<version> && git push --tags`
+1. Tag the release in git: `git tag <version> && git push --tags`
+   (tags are bare version numbers — e.g. `0.1.0`, not `v0.1.0`)
 2. Create a GitHub Release with the tag; paste the relevant `CHANGELOG.md`
    entry as the release notes.
 3. Announce in the appropriate channels.

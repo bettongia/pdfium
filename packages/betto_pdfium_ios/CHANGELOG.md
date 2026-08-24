@@ -1,6 +1,8 @@
-# betto_pdfium
+# betto_pdfium_ios
 
-## 0.1.0-dev.5
+## 0.1.0
+
+First stable release. No functional changes since `0.1.0-dev.4`.
 
 ## 0.1.0-dev.4
 

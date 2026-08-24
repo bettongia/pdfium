@@ -32,7 +32,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  betto_pdfium: ^0.1.0-dev.3
+  betto_pdfium: ^0.1.0
 ```
 
 **Flutter iOS apps** also need the companion plugin, which delivers the PDFium
@@ -40,8 +40,8 @@ xcframework via Swift Package Manager:
 
 ```yaml
 dependencies:
-  betto_pdfium: ^0.1.0-dev.3
-  betto_pdfium_ios: ^0.1.0-dev.3
+  betto_pdfium: ^0.1.0
+  betto_pdfium_ios: ^0.1.0
 ```
 
 No additional setup is needed on desktop — the PDFium binary is fetched
